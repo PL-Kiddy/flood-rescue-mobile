@@ -12,7 +12,7 @@ import {
   FlatList,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { reliefCategories, emergencyNumbers } from '../data/mockData';
+import { reliefCategories, emergencyNumbers } from '../../data/mockData';
 
 const { width } = Dimensions.get('window');
 

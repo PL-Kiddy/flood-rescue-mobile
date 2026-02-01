@@ -10,7 +10,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { mockRescueRequests, emergencyNumbers } from '../data/mockData';
+import { mockRescueRequests, emergencyNumbers } from '../../data/mockData';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +32,12 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
           <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.loginBtn}
+              onPress={() => navigation.navigate('Login')}
+            >
+              <Text style={styles.loginBtnText}>🔐 ĐỘI CỨU HỘ</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.notificationBtn}>
               <MaterialIcons name="notifications" size={24} color="#666" />
               <View style={styles.notificationDot} />
@@ -182,6 +188,18 @@ const styles = {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  loginBtn: {
+    backgroundColor: '#4277a9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  loginBtnText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#fff',
+    textTransform: 'uppercase',
   },
   notificationBtn: {
     position: 'relative',
