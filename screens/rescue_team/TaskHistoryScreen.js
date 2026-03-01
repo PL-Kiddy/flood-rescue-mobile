@@ -8,8 +8,10 @@ import {
   StatusBar,
   FlatList,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../constants/theme';
 
 const taskHistory = [
   {
@@ -64,57 +66,101 @@ const taskHistory = [
   },
 ];
 
-export default function TaskHistoryScreen({ navigation }) {
-  const [searchQuery, setSearchQuery] = useState('');
+const statsData = [
+  { id: 1, label: 'Tổng nhiệm vụ', value: '124', icon: 'document-text', color: colors.primary },
+  { id: 2, label: 'Người đã cứu', value: '318', icon: 'checkmark-circle', color: colors.success },
+  { id: 3, label: 'Giờ hoạt động', value: '860h', icon: 'time', color: colors.relief },
+  { id: 4, label: 'Sơ cứu tại chỗ', value: '42', icon: 'medkit', color: colors.sos },
+];
 
-  const stats = [
-    { label: 'Tổng nhiệm vụ', value: '124', icon: '✓', color: '#3b82f6', bgColor: '#eff6ff' },
-    { label: 'Người đã cứu', value: '318', icon: '👤', color: '#28A745', bgColor: '#f0fdf4' },
-    { label: 'Giờ hoạt động', value: '860h', icon: '⏱️', color: '#f59e0b', bgColor: '#fffbeb' },
-    { label: 'Sơ cứu tại chỗ', value: '42', icon: '🩺', color: '#dc2626', bgColor: '#fef2f2' },
-  ];
+export default function TaskHistoryScreen({ navigation }) {
+  const [searchText, setSearchText] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const getStatusBgColor = (status) => {
+    switch (status) {
+      case 'Đã sơ tán':
+        return 'rgba(40, 167, 69, 0.1)';
+      case 'Cấp cứu tại chỗ':
+        return 'rgba(255, 140, 0, 0.1)';
+      case 'Chuyển viện':
+        return 'rgba(220, 38, 38, 0.1)';
+      default:
+        return 'rgba(60, 60, 60, 0.1)';
+    }
+  };
+
+  const getStatusTextColor = (status) => {
+    switch (status) {
+      case 'Đã sơ tán':
+        return '#15803d';
+      case 'Cấp cứu tại chỗ':
+        return '#b45309';
+      case 'Chuyển viện':
+        return '#b91c1c';
+      default:
+        return '#666';
+    }
+  };
 
   const renderStatCard = ({ item }) => (
-    <View style={[styles.statCard, { backgroundColor: item.bgColor }]}>
-      <View style={[styles.statIconBox, { backgroundColor: 'rgba(' + parseInt(item.color.slice(1,3), 16) + ',' + parseInt(item.color.slice(3,5), 16) + ',' + parseInt(item.color.slice(5,7), 16) + ',0.2)' }]}>
-        <Text style={{ fontSize: 24 }}>{item.icon}</Text>
+    <TouchableOpacity style={styles.statCard}>
+      <View style={[styles.statIcon, { backgroundColor: `${item.color}20` }]}>
+        <Ionicons name={item.icon} size={22} color={item.color} />
       </View>
-      <View>
-        <Text style={styles.statValue}>{item.value}</Text>
-        <Text style={styles.statLabel}>{item.label}</Text>
-      </View>
-    </View>
+      <Text style={styles.statValue}>{item.value}</Text>
+      <Text style={styles.statLabel}>{item.label}</Text>
+    </TouchableOpacity>
   );
 
   const renderTaskCard = ({ item }) => (
-    <TouchableOpacity style={styles.taskCard} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.taskCard}
+      activeOpacity={0.7}
+    >
       <View style={styles.taskHeader}>
         <Text style={styles.taskCode}>{item.code}</Text>
-        <View style={[styles.taskStatusBadge, { backgroundColor: item.statusColor + '20', borderColor: item.statusColor }]}>
-          <View style={[styles.statusDot, { backgroundColor: item.statusColor }]} />
-          <Text style={[styles.taskStatus, { color: item.statusColor }]}>{item.status}</Text>
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: getStatusBgColor(item.status) },
+          ]}
+        >
+          <View
+            style={[styles.statusDot, { backgroundColor: item.statusColor }]}
+          />
+          <Text
+            style={[
+              styles.statusText,
+              { color: getStatusTextColor(item.status) },
+            ]}
+          >
+            {item.status}
+          </Text>
         </View>
       </View>
 
-      <Text style={styles.taskVictim}>{item.victim}</Text>
+      <Text style={styles.victimName}>{item.victim}</Text>
 
       <View style={styles.taskDetails}>
-        <View style={styles.taskDetail}>
-          <Text style={{ fontSize: 14 }}>📅</Text>
-          <Text style={styles.taskDetailText}>{item.datetime}</Text>
+        <View style={styles.detailItem}>
+          <Ionicons name="calendar" size={16} color={colors.gray500} />
+          <Text style={styles.detailText}>{item.datetime}</Text>
         </View>
-        <View style={styles.taskDetail}>
-          <Text style={{ fontSize: 14 }}>📍</Text>
-          <Text style={styles.taskDetailText} numberOfLines={1}>{item.location}</Text>
+        <View style={styles.detailItem}>
+          <Ionicons name="location" size={16} color={colors.gray500} />
+          <Text style={styles.detailText} numberOfLines={1}>
+            {item.location}
+          </Text>
         </View>
       </View>
 
       <View style={styles.taskFooter}>
-        <Text style={styles.taskTeam}>Đội hỗ trợ: {item.team}</Text>
+        <Text style={styles.teamInfo}>Đội hỗ trợ: {item.team}</Text>
         <TouchableOpacity>
           <View style={styles.viewDetailBtn}>
             <Text style={styles.viewDetailText}>Xem chi tiết</Text>
-            <Text style={{ fontSize: 14 }}>›</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
           </View>
         </TouchableOpacity>
       </View>
@@ -122,14 +168,14 @@ export default function TaskHistoryScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f6f7f8' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.surfaceDark }]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.surfaceDark} />
 
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.headerIcon}>
-            <Text style={{ fontSize: 20 }}>🚨</Text>
+            <Ionicons name="alert-circle" size={20} color={colors.white} />
           </View>
           <View>
             <Text style={styles.headerTitle}>CỨU HỘ VN</Text>
@@ -137,79 +183,91 @@ export default function TaskHistoryScreen({ navigation }) {
           </View>
         </View>
         <TouchableOpacity style={styles.notificationBtn}>
-          <Text style={{ fontSize: 20 }}>🔔</Text>
+          <Ionicons name="notifications-outline" size={22} color={colors.gray400} />
           <View style={styles.notificationDot} />
         </TouchableOpacity>
       </View>
 
       <ScrollView
-        style={styles.container}
+        style={styles.content}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
       >
         {/* Stats Carousel */}
         <View style={styles.statsSection}>
           <FlatList
-            data={stats}
+            data={statsData}
             renderItem={renderStatCard}
-            keyExtractor={(item) => item.label}
+            keyExtractor={(item) => item.id.toString()}
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.statsCarousel}
-            scrollEventThrottle={16}
+            snapToInterval={150}
+            decelerationRate="fast"
+            contentContainerStyle={styles.statsContent}
           />
         </View>
 
-        {/* Search and Filter */}
+        {/* Search & Filter */}
         <View style={styles.searchSection}>
-          <View style={styles.searchBox}>
-            <Text style={{ fontSize: 18 }}>🔍</Text>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color={colors.gray500} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Tìm theo mã, tên..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
+              placeholderTextColor="#999"
+              value={searchText}
+              onChangeText={setSearchText}
             />
           </View>
           <TouchableOpacity style={styles.filterBtn}>
-            <Text style={{ fontSize: 18 }}>⚙️</Text>
+            <Ionicons name="options" size={22} color={colors.gray500} />
           </TouchableOpacity>
         </View>
 
-        {/* Task History */}
+        {/* Task History List */}
         <View style={styles.tasksSection}>
           <FlatList
             data={taskHistory}
             renderItem={renderTaskCard}
             keyExtractor={(item) => item.id.toString()}
             scrollEnabled={false}
-            contentContainerStyle={styles.taskList}
+            ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           />
-          
-          {/* Loading Indicator */}
-          <View style={styles.loadingContainer}>
-            <View style={styles.spinner} />
-          </View>
         </View>
+
+        {/* Loading Indicator */}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        )}
       </ScrollView>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={{ fontSize: 20 }}>📋</Text>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => navigation.navigate('TaskAssignment')}
+        >
+          <Ionicons name="document-text" size={22} color={colors.gray500} />
           <Text style={styles.navLabel}>Nhiệm vụ</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={{ fontSize: 20 }}>👥</Text>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => navigation.navigate('TeamMembers')}
+        >
+          <Ionicons name="people" size={22} color={colors.gray500} />
           <Text style={styles.navLabel}>Thành viên</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem, styles.navItemActive]}>
-          <View style={styles.navActiveIndicator} />
-          <Text style={{ fontSize: 20 }}>📜</Text>
+        <TouchableOpacity
+          style={[styles.navItem, styles.navItemActive]}
+          onPress={() => navigation.navigate('TaskHistory')}
+        >
+          <Ionicons name="time" size={22} color={colors.primary} />
           <Text style={styles.navLabelActive}>Lịch sử</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
-          <Text style={{ fontSize: 20 }}>👤</Text>
+          <Ionicons name="person" size={22} color={colors.gray500} />
           <Text style={styles.navLabel}>Cá nhân</Text>
         </TouchableOpacity>
       </View>
@@ -218,15 +276,19 @@ export default function TaskHistoryScreen({ navigation }) {
 }
 
 const styles = {
+  container: {
+    flex: 1,
+    backgroundColor: '#1c1e22',
+  },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: '#25282e',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#3d4d52',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -240,16 +302,25 @@ const styles = {
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#4277a9',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   headerTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#1a1a1a',
+    color: '#fff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   headerSubtitle: {
     fontSize: 10,
-    fontWeight: 'bold',
-    color: '#999',
+    fontWeight: '700',
+    color: '#9eb1b7',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginTop: 2,
   },
   notificationBtn: {
@@ -257,96 +328,108 @@ const styles = {
   },
   notificationDot: {
     position: 'absolute',
-    top: 0,
-    right: 2,
-    width: 6,
-    height: 6,
+    top: 2,
+    right: 4,
+    width: 8,
+    height: 8,
     backgroundColor: '#dc2626',
-    borderRadius: 3,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#25282e',
   },
-  container: {
+  content: {
     flex: 1,
-    paddingBottom: 20,
+    paddingBottom: 80,
   },
   statsSection: {
-    paddingTop: 16,
+    paddingVertical: 12,
   },
-  statsCarousel: {
+  statsContent: {
     paddingHorizontal: 16,
     gap: 12,
   },
   statCard: {
     width: 144,
-    borderRadius: 12,
+    backgroundColor: '#25282e',
+    borderRadius: 16,
     padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    borderWidth: 1,
+    borderColor: '#3d4d52',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    minHeight: 112,
   },
-  statIconBox: {
-    width: 44,
-    height: 44,
+  statIcon: {
+    width: 36,
+    height: 36,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 8,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '900',
-    color: '#1a1a1a',
+    color: '#fff',
+    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    color: '#999',
-    marginTop: 2,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9eb1b7',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   searchSection: {
+    flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    flexDirection: 'row',
-    gap: 10,
+    gap: 8,
+    backgroundColor: 'rgba(28, 30, 34, 0.5)',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3d4d52',
   },
-  searchBox: {
+  searchContainer: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    backgroundColor: '#25282e',
+    borderRadius: 12,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#3d4d52',
+  },
+  searchIcon: {
+    fontSize: 16,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#1a1a1a',
     paddingVertical: 10,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#fff',
   },
   filterBtn: {
-    backgroundColor: '#fff',
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
+    backgroundColor: '#25282e',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#3d4d52',
   },
   tasksSection: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  taskList: {
-    gap: 12,
+    paddingVertical: 12,
   },
   taskCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: '#25282e',
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#3d4d52',
   },
   taskHeader: {
     flexDirection: 'row',
@@ -357,66 +440,70 @@ const styles = {
   taskCode: {
     fontSize: 11,
     fontWeight: '900',
-    color: '#fff',
-    backgroundColor: '#4277a9',
+    color: '#4277a9',
+    backgroundColor: 'rgba(66, 119, 169, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
     fontFamily: 'monospace',
   },
-  taskStatusBadge: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 20,
-    borderWidth: 1,
   },
   statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
-  taskStatus: {
-    fontSize: 9,
-    fontWeight: '900',
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
-  taskVictim: {
+  victimName: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#1a1a1a',
+    color: '#fff',
     marginBottom: 12,
   },
   taskDetails: {
     borderLeftWidth: 2,
-    borderLeftColor: '#e5e7eb',
+    borderLeftColor: '#3d4d52',
     paddingLeft: 12,
     gap: 8,
     marginBottom: 12,
   },
-  taskDetail: {
+  detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  taskDetailText: {
+  detailIcon: {
+    fontSize: 14,
+  },
+  detailText: {
     fontSize: 12,
-    color: '#666',
+    color: '#9eb1b7',
+    flex: 1,
   },
   taskFooter: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#3d4d52',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
   },
-  taskTeam: {
+  teamInfo: {
     fontSize: 11,
-    fontWeight: 'bold',
-    color: '#999',
+    fontWeight: '700',
+    color: '#9eb1b7',
   },
   viewDetailBtn: {
     flexDirection: 'row',
@@ -425,54 +512,51 @@ const styles = {
   },
   viewDetailText: {
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#4277a9',
   },
   loadingContainer: {
-    alignItems: 'center',
     paddingVertical: 24,
-  },
-  spinner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 4,
-    borderColor: '#e5e7eb',
-    borderTopColor: '#4277a9',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bottomNav: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#fff',
+    backgroundColor: '#1c1e22',
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    paddingVertical: 12,
-    paddingBottom: 20,
+    borderTopColor: '#3d4d52',
+    height: 64,
   },
   navItem: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
   },
   navItemActive: {
-    position: 'relative',
+    borderTopWidth: 3,
+    borderTopColor: '#4277a9',
   },
-  navActiveIndicator: {
-    position: 'absolute',
-    top: -8,
-    width: 40,
-    height: 3,
-    backgroundColor: '#4277a9',
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
+  navIcon: {
+    fontSize: 20,
+  },
+  navIconActive: {
+    fontSize: 20,
   },
   navLabel: {
     fontSize: 10,
-    fontWeight: 'bold',
-    color: '#999',
+    fontWeight: '700',
+    color: '#6b7280',
+    textTransform: 'uppercase',
   },
   navLabelActive: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#4277a9',
+    textTransform: 'uppercase',
   },
 };

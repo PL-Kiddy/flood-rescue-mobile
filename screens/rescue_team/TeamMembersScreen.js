@@ -1,105 +1,122 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
   SafeAreaView,
   StatusBar,
   FlatList,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../constants/theme';
 
-const teamMembers = [
+const mockMembers = [
   {
-    id: 1,
+    id: '1',
     name: 'Lê Văn Nam',
+    initials: 'LN',
     role: 'ĐỘI TRƯỞNG',
-    status: 'busy', // busy, available
+    status: 'active',
     skills: ['Chỉ huy', 'Cứu nạn'],
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDuyHJht1Ui_YnTJY1DSTJcepL41z4IZMSumUIurIVYz9lef0hO7-k_3uGKOnurRxgL8dyP3uXt8LLnxj0am06PnWSIY2rEbTIWwBVHMyaX-Ubx2HcV_jmPv0vWeY7QjH7wnnbSuvmdF3a96wV66E8_Xkkm4SJzfiy5u8pZsR7Jg1GT1YRXxBBTCjsOtcNX1pL-AlsMP3II1iJxEO0E1UYqEpwzWTj6UZeSCvlEbrTbzEdxkZ8BFHsX9mCnN-_TbKVl9lw6NXuuRBM',
+    badge: 'ĐỘI TRƯỞNG',
+    color: '#6366f1',
   },
   {
-    id: 2,
+    id: '2',
     name: 'Nguyễn Văn B',
-    role: 'THÀNH VIÊN',
-    status: 'busy',
-    skills: ['Cứu hộ thủy', 'Sơ cấp cứu'],
     initials: 'NB',
+    role: 'Cứu hộ thủy',
+    status: 'active',
+    skills: ['Cứu hộ thủy', 'Sơ cấp cứu'],
     color: '#3b82f6',
   },
   {
-    id: 3,
+    id: '3',
     name: 'Trần Thị C',
-    role: 'THÀNH VIÊN',
-    status: 'available',
-    skills: ['Tâm lý', 'Hậu cần'],
     initials: 'TC',
-    color: '#8b5cf6',
+    role: 'Hỗ trợ',
+    status: 'idle',
+    skills: ['Tâm lý', 'Hậu cần'],
+    color: '#a855f7',
   },
   {
-    id: 4,
+    id: '4',
     name: 'Lê Văn D',
-    role: 'THÀNH VIÊN',
-    status: 'busy',
-    skills: ['Lái xe', 'Kỹ thuật'],
     initials: 'LD',
-    color: '#f59e0b',
+    role: 'Lái xe',
+    status: 'active',
+    skills: ['Lái xe', 'Kỹ thuật'],
+    color: '#eab308',
   },
   {
-    id: 5,
+    id: '5',
     name: 'Hoàng Văn K',
-    role: 'THÀNH VIÊN',
-    status: 'available',
-    skills: ['Viễn thông', 'Trinh sát'],
     initials: 'HK',
+    role: 'Viễn thông',
+    status: 'idle',
+    skills: ['Viễn thông', 'Trinh sát'],
     color: '#14b8a6',
   },
   {
-    id: 6,
+    id: '6',
     name: 'Nguyễn Thành P',
-    role: 'TỶ TRƯỞNG',
-    status: 'available',
-    skills: ['Tình nguyện'],
     initials: 'NP',
+    role: 'Tình nguyện',
+    status: 'idle',
+    skills: ['Tình nguyện'],
     color: '#6b7280',
   },
 ];
 
 export default function TeamMembersScreen({ navigation }) {
-  const totalMembers = teamMembers.length;
-  const readyMembers = teamMembers.filter(m => m.status === 'available').length;
-  const onDuty = teamMembers.filter(m => m.status === 'busy').length;
+  const totalMembers = mockMembers.length;
+  const readyMembers = mockMembers.filter((m) => m.status === 'active').length;
+  const onDutyMembers = mockMembers.filter((m) => m.status === 'active').length;
 
-  const renderMemberItem = ({ item }) => (
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active':
+        return '#FF8C00';
+      case 'idle':
+        return '#28A745';
+      default:
+        return '#999';
+    }
+  };
+
+  const renderMember = ({ item }) => (
     <TouchableOpacity
       style={styles.memberCard}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
-      <View style={styles.memberContent}>
-        {item.avatar ? (
-          <Image source={{ uri: item.avatar }} style={styles.memberAvatar} />
-        ) : (
-          <View style={[styles.memberAvatarInitials, { backgroundColor: item.color }]}>
-            <Text style={styles.memberInitials}>{item.initials}</Text>
-          </View>
-        )}
-        <View style={[styles.memberStatusDot, { backgroundColor: item.status === 'available' ? '#28A745' : '#FF8C00' }]} />
-        
+      <View style={styles.memberContainer}>
+        {/* Avatar */}
+        <View style={[styles.avatar, { backgroundColor: item.color }]}>
+          <Text style={styles.avatarText}>{item.initials}</Text>
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: getStatusColor(item.status) },
+            ]}
+          />
+        </View>
+
+        {/* Member Info */}
         <View style={styles.memberInfo}>
-          <View style={styles.memberHeader}>
+          <View style={styles.memberNameRow}>
             <Text style={styles.memberName}>{item.name}</Text>
-            <View style={styles.memberBadge}>
-              <Text style={styles.memberBadgeText}>{item.role}</Text>
-            </View>
+            {item.badge && (
+              <Text style={styles.badge}>{item.badge}</Text>
+            )}
           </View>
-          
-          <View style={styles.memberSkills}>
+
+          {/* Skills */}
+          <View style={styles.skillsRow}>
             {item.skills.map((skill, idx) => (
-              <View key={idx} style={styles.skillTag}>
-                <Text style={styles.skillTagText}>{skill}</Text>
-              </View>
+              <Text key={idx} style={styles.skillBadge}>
+                {skill}
+              </Text>
             ))}
           </View>
         </View>
@@ -108,32 +125,38 @@ export default function TeamMembersScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f6f7f8' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1e1e1e" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.headerIcon}>
-            <Text style={{ fontSize: 20 }}>🚨</Text>
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.headerIcon}>
+              <Ionicons name="alert-circle" size={22} color={colors.white} />
+            </View>
+            <View>
+              <Text style={styles.headerTitle}>CỨU HỘ VN</Text>
+              <Text style={styles.headerSubtitle}>Team Alpha-1</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.headerTitle}>CỨU HỘ VN</Text>
-            <Text style={styles.headerSubtitle}>Team Alpha-1</Text>
+
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.notificationBtn}>
+              <Ionicons name="notifications-outline" size={22} color={colors.gray400} />
+              <View style={styles.notificationBadge} />
+            </TouchableOpacity>
+            <View style={styles.profileAvatar}>
+              <Ionicons name="person" size={20} color={colors.gray600} />
+            </View>
           </View>
         </View>
-        <TouchableOpacity style={styles.notificationBtn}>
-          <Text style={{ fontSize: 20 }}>🔔</Text>
-          <View style={styles.notificationDot} />
-        </TouchableOpacity>
-      </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Overview Section */}
-        <View style={styles.overviewSection}>
-          <View style={styles.overviewHeader}>
-            <Text style={styles.sectionLabel}>TỔNG QUAN</Text>
-            <View style={styles.onlineStatus}>
+        {/* Summary Section */}
+        <View style={styles.summarySection}>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryTitle}>Tổng quan</Text>
+            <View style={styles.onlineIndicator}>
               <View style={styles.onlineDot} />
               <Text style={styles.onlineText}>Trực tuyến</Text>
             </View>
@@ -141,74 +164,87 @@ export default function TeamMembersScreen({ navigation }) {
 
           {/* Stats Grid */}
           <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
+            <TouchableOpacity style={styles.statCard}>
               <Text style={styles.statLabel}>Tổng quân số</Text>
               <Text style={styles.statValue}>{totalMembers}</Text>
-              <Text style={{ fontSize: 40, color: '#e5e7eb', marginTop: 8 }}>👥</Text>
-            </View>
-            <View style={styles.statCard}>
+              <Ionicons name="people" size={32} color={colors.gray700} style={styles.statIcon} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.statCard}>
               <Text style={styles.statLabel}>Sẵn sàng</Text>
-              <Text style={[styles.statValue, { color: '#28A745' }]}>{String(readyMembers).padStart(2, '0')}</Text>
-              <Text style={{ fontSize: 40, color: '#dcfce7', marginTop: 8 }}>✓</Text>
-            </View>
+              <Text style={styles.statValueGreen}>{readyMembers}</Text>
+              <Ionicons name="checkmark-circle" size={32} color={colors.success} style={styles.statIcon} />
+            </TouchableOpacity>
           </View>
 
-          {/* On Duty Badge */}
-          <View style={styles.onDutyBadge}>
-            <View style={styles.onDutyContent}>
+          {/* On Duty Card */}
+          <View style={styles.onDutyCard}>
+            <View style={styles.onDutyLeft}>
               <View style={styles.onDutyIcon}>
-                <Text style={{ fontSize: 18 }}>🚨</Text>
+                <Ionicons name="alert-circle" size={20} color={colors.relief} />
               </View>
               <View>
                 <Text style={styles.onDutyLabel}>Đang làm nhiệm vụ</Text>
                 <View style={styles.onDutyValue}>
-                  <Text style={styles.onDutyNumber}>{onDuty}</Text>
+                  <Text style={styles.onDutyNumber}>{onDutyMembers}</Text>
                   <Text style={styles.onDutyUnit}>chiến sĩ</Text>
                 </View>
               </View>
             </View>
-            <View style={styles.onDutyMission}>
+            <View style={styles.onDutyRight}>
               <Text style={styles.missionCodeLabel}>Mã vụ việc</Text>
               <Text style={styles.missionCode}>#RE-9921</Text>
             </View>
           </View>
         </View>
 
-        {/* Team Members Section */}
+        {/* Members Section */}
         <View style={styles.membersSection}>
           <View style={styles.membersHeader}>
-            <Text style={styles.sectionTitle}>Thành viên đội</Text>
+            <Text style={styles.membersTitle}>Thành viên đội</Text>
             <TouchableOpacity style={styles.filterBtn}>
               <Text style={styles.filterBtnText}>Lọc danh sách</Text>
             </TouchableOpacity>
           </View>
 
           <FlatList
-            data={teamMembers}
-            renderItem={renderMemberItem}
-            keyExtractor={item => item.id.toString()}
+            data={mockMembers}
+            renderItem={renderMember}
+            keyExtractor={(item) => item.id}
             scrollEnabled={false}
-            contentContainerStyle={styles.memberList}
+            ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           />
+
+          <TouchableOpacity style={styles.viewMoreBtn}>
+            <Text style={styles.viewMoreText}>Xem thêm 6 thành viên</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={{ fontSize: 20 }}>📋</Text>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => navigation.navigate('TaskAssignment')}
+        >
+          <Ionicons name="document-text" size={22} color={colors.gray500} />
           <Text style={styles.navLabel}>Nhiệm vụ</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem, styles.navItemActive]}>
-          <Text style={{ fontSize: 20 }}>👥</Text>
+        <TouchableOpacity
+          style={[styles.navItem, styles.navItemActive]}
+          onPress={() => navigation.navigate('TeamMembers')}
+        >
+          <Ionicons name="people" size={22} color={colors.primary} />
           <Text style={styles.navLabelActive}>Thành viên</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={{ fontSize: 20 }}>📜</Text>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => navigation.navigate('TaskHistory')}
+        >
+          <Ionicons name="time" size={22} color={colors.gray500} />
           <Text style={styles.navLabel}>Lịch sử</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
-          <Text style={{ fontSize: 20 }}>👤</Text>
+          <Ionicons name="person" size={22} color={colors.gray500} />
           <Text style={styles.navLabel}>Cá nhân</Text>
         </TouchableOpacity>
       </View>
@@ -217,15 +253,22 @@ export default function TeamMembersScreen({ navigation }) {
 }
 
 const styles = {
+  container: {
+    flex: 1,
+    backgroundColor: '#121212',
+  },
+  scrollView: {
+    paddingBottom: 80,
+  },
   header: {
-    backgroundColor: '#fff',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#1e1e1e',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#374151',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -233,9 +276,9 @@ const styles = {
     gap: 12,
   },
   headerIcon: {
-    backgroundColor: '#4277a9',
     width: 40,
     height: 40,
+    backgroundColor: '#4277a9',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -243,56 +286,77 @@ const styles = {
   headerTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#1a1a1a',
+    color: '#fff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   headerSubtitle: {
     fontSize: 10,
-    fontWeight: 'bold',
-    color: '#999',
+    fontWeight: '700',
+    color: '#9ca3af',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
     marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   notificationBtn: {
     position: 'relative',
   },
-  notificationDot: {
+  notificationBadge: {
     position: 'absolute',
-    top: 0,
-    right: 2,
-    width: 6,
-    height: 6,
+    top: 2,
+    right: 4,
+    width: 10,
+    height: 10,
     backgroundColor: '#dc2626',
-    borderRadius: 3,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#fff',
   },
-  overviewSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+  profileAvatar: {
+    width: 36,
+    height: 36,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4b5563',
+  },
+  summarySection: {
+    padding: 16,
     gap: 12,
   },
-  overviewHeader: {
+  summaryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  sectionLabel: {
-    fontSize: 11,
+  summaryTitle: {
+    fontSize: 12,
     fontWeight: '900',
-    color: '#999',
+    color: '#6b7280',
+    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  onlineStatus: {
+  onlineIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   onlineDot: {
-    width: 6,
-    height: 6,
+    width: 8,
+    height: 8,
     backgroundColor: '#28A745',
-    borderRadius: 3,
+    borderRadius: 4,
   },
   onlineText: {
-    fontSize: 11,
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#28A745',
   },
   statsGrid: {
@@ -301,58 +365,69 @@ const styles = {
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: '#1e1e1e',
+    borderRadius: 20,
     padding: 16,
-    alignItems: 'flex-start',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#374151',
   },
   statLabel: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#999',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9ca3af',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
   },
   statValue: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '900',
-    color: '#1a1a1a',
-    marginTop: 8,
+    color: '#fff',
+    marginBottom: 8,
   },
-  onDutyBadge: {
-    backgroundColor: '#fef3c7',
-    borderRadius: 16,
+  statValueGreen: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#28A745',
+    marginBottom: 8,
+  },
+  statIcon: {
+    opacity: 0.3,
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+  },
+  onDutyCard: {
+    backgroundColor: 'rgba(255, 140, 0, 0.05)',
+    borderRadius: 20,
     padding: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#FF8C00',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 140, 0, 0.2)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#fde68a',
   },
-  onDutyContent: {
+  onDutyLeft: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     flex: 1,
   },
   onDutyIcon: {
     width: 40,
     height: 40,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 140, 0, 0.1)',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   onDutyLabel: {
-    fontSize: 10,
-    fontWeight: '900',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#FF8C00',
     textTransform: 'uppercase',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
   },
   onDutyValue: {
     flexDirection: 'row',
@@ -361,33 +436,35 @@ const styles = {
     marginTop: 4,
   },
   onDutyNumber: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '900',
-    color: '#1a1a1a',
+    color: '#fff',
   },
   onDutyUnit: {
     fontSize: 11,
-    fontWeight: '500',
-    color: '#666',
+    fontWeight: '600',
+    color: '#9ca3af',
   },
-  onDutyMission: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+  onDutyRight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
   },
   missionCodeLabel: {
-    fontSize: 8,
-    fontWeight: 'bold',
-    color: '#999',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9ca3af',
     textTransform: 'uppercase',
+    marginBottom: 4,
   },
   missionCode: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '900',
     color: '#4277a9',
-    marginTop: 2,
   },
   membersSection: {
     paddingHorizontal: 16,
@@ -397,135 +474,146 @@ const styles = {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1a1a1a',
-  },
-  filterBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  filterBtnText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#4277a9',
-  },
-  memberList: {
-    gap: 12,
-  },
-  memberCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  memberContent: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  memberAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  memberAvatarInitials: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  memberInitials: {
+  membersTitle: {
     fontSize: 18,
     fontWeight: '900',
     color: '#fff',
   },
-  memberStatusDot: {
+  filterBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  filterBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4277a9',
+  },
+  memberCard: {
+    backgroundColor: '#1e1e1e',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  memberContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#fff',
+  },
+  statusDot: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: '#1e1e1e',
   },
   memberInfo: {
     flex: 1,
-    justifyContent: 'center',
   },
-  memberHeader: {
+  memberNameRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 8,
   },
   memberName: {
     fontSize: 15,
-    fontWeight: '900',
-    color: '#1a1a1a',
+    fontWeight: '700',
+    color: '#fff',
   },
-  memberBadge: {
-    backgroundColor: 'rgba(66, 119, 169, 0.1)',
+  badge: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#4277a9',
+    backgroundColor: 'rgba(66, 119, 169, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(66, 119, 169, 0.2)',
+    borderColor: '#4277a9',
   },
-  memberBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#4277a9',
-  },
-  memberSkills: {
+  skillsRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
     flexWrap: 'wrap',
   },
-  skillTag: {
-    backgroundColor: '#f0f0f0',
+  skillBadge: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#9ca3af',
+    backgroundColor: '#2d3748',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
   },
-  skillTagText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#666',
+  viewMoreBtn: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  viewMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
   },
   bottomNav: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#fff',
+    backgroundColor: '#1e1e1e',
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    paddingVertical: 12,
-    paddingBottom: 20,
+    borderTopColor: '#374151',
+    height: 64,
   },
   navItem: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
   },
   navItemActive: {
-    opacity: 1,
+    borderTopWidth: 3,
+    borderTopColor: '#4277a9',
+  },
+  navIcon: {
+    fontSize: 20,
+  },
+  navIconActive: {
+    fontSize: 20,
   },
   navLabel: {
     fontSize: 10,
-    fontWeight: 'bold',
-    color: '#999',
+    fontWeight: '700',
+    color: '#6b7280',
+    textTransform: 'uppercase',
   },
   navLabelActive: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#4277a9',
+    textTransform: 'uppercase',
   },
 };

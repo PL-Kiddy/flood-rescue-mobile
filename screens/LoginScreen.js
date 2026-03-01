@@ -8,171 +8,120 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-
-// Mock data for login
-const RESCUE_TEAM_CREDENTIALS = {
-  email: 'rescueteam1@fpt.edu.vn',
-  password: '123456',
-};
+import { useAuth } from '../contexts/AuthContext';
+import { colors } from '../constants/theme';
 
 export default function LoginScreen({ navigation }) {
+  const { login } = useAuth();
+  const [role, setRole] = useState('citizen');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    const trimmed = (email || '').trim();
+    if (!trimmed || !password) {
       Alert.alert('Lỗi', 'Vui lòng nhập email và mật khẩu');
       return;
     }
 
     setLoading(true);
-
-    // Simulate network delay
-    setTimeout(() => {
-      if (
-        email === RESCUE_TEAM_CREDENTIALS.email &&
-        password === RESCUE_TEAM_CREDENTIALS.password
-      ) {
-        setLoading(false);
-        Alert.alert('Thành công', 'Đăng nhập thành công!', [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('RescueTeamStack'),
-          },
-        ]);
+    try {
+      const { user: u } = await login(trimmed, password);
+      setLoading(false);
+      const root = navigation.getParent();
+      if (u?.role === 'coordinator' || u?.role === 'admin') {
+        if (root) root.reset({ index: 0, routes: [{ name: 'RescueTeamStack' }] });
+        else navigation.navigate('RescueTeamStack');
       } else {
-        setLoading(false);
-        Alert.alert(
-          'Đăng nhập thất bại',
-          'Email hoặc mật khẩu không chính xác'
-        );
+        navigation.reset({ index: 0, routes: [{ name: 'Home', params: { citizenLoggedIn: true } }] });
       }
-    }, 800);
+    } catch (err) {
+      setLoading(false);
+      Alert.alert('Đăng nhập thất bại', err.message || 'Email hoặc mật khẩu không đúng.');
+    }
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f6f7f8' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f6f7f8" />
-
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={{ fontSize: 24 }}>‹</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Đăng nhập đội cứu hộ</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
-        {/* Icon */}
-        <View style={styles.iconContainer}>
           <View style={styles.iconBox}>
-            <Text style={{ fontSize: 64 }}>🚨</Text>
+            <Text style={styles.iconText}>CỨU HỘ</Text>
           </View>
+          <Text style={styles.headerTitle}>CỨU HỘ VIỆT NAM</Text>
+          <Text style={styles.headerSubtitle}>Kết nối hỗ trợ khẩn cấp</Text>
         </View>
 
-        {/* Title */}
-        <View style={styles.titleSection}>
-          <Text style={styles.title}>CỨU HỘ VN</Text>
-          <Text style={styles.subtitle}>Hệ thống quản lý cứu hộ thiên tai</Text>
+        <View style={styles.roleTabs}>
+          <TouchableOpacity
+            style={[styles.roleTab, role === 'citizen' && styles.roleTabActive]}
+            onPress={() => setRole('citizen')}
+            disabled={loading}
+          >
+            <Text style={[styles.roleTabText, role === 'citizen' && styles.roleTabTextActive]}>Người dân</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.roleTab, role === 'official' && styles.roleTabActive]}
+            onPress={() => setRole('official')}
+            disabled={loading}
+          >
+            <Text style={[styles.roleTabText, role === 'official' && styles.roleTabTextActive]}>Cán bộ</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
-          {/* Email Input */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Email đội cứu hộ</Text>
-            <View style={styles.inputContainer}>
-              <Text style={{ fontSize: 18 }}>📧</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="rescueteam1@fpt.edu.vn"
-                placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                editable={!loading}
-              />
-            </View>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="email@example.com"
+              placeholderTextColor={colors.gray500}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={!loading}
+            />
           </View>
 
-          {/* Password Input */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Mật khẩu</Text>
-            <View style={styles.inputContainer}>
-              <Text style={{ fontSize: 18 }}>🔒</Text>
+            <View style={styles.inputRow}>
               <TextInput
-                style={styles.input}
-                placeholder="••••••••"
-                placeholderTextColor="#999"
+                style={styles.inputFlex}
+                placeholder="Nhập mật khẩu"
+                placeholderTextColor={colors.gray500}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 editable={!loading}
               />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                disabled={loading}
-              >
-                <Text style={{ fontSize: 18 }}>
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
-                </Text>
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={loading}>
+                <Text style={styles.togglePwd}>{showPassword ? 'Ẩn' : 'Hiện'}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Demo Credentials Info */}
+          <TouchableOpacity style={[styles.loginBtn, loading && styles.loginBtnDisabled]} onPress={handleLogin} disabled={loading}>
+            {loading ? <ActivityIndicator size="small" color={colors.white} /> : <Text style={styles.loginBtnText}>Đăng nhập</Text>}
+          </TouchableOpacity>
+
           <View style={styles.demoBox}>
-            <Text style={styles.demoTitle}>📝 Thông tin đăng nhập demo:</Text>
-            <Text style={styles.demoText}>
-              Email: rescueteam1@fpt.edu.vn
-            </Text>
-            <Text style={styles.demoText}>Mật khẩu: 123456</Text>
+            <Text style={styles.demoTitle}>Tài khoản demo API</Text>
+            <Text style={styles.demoText}>Người dân: user@example.com / user123</Text>
+            <Text style={styles.demoText}>Cán bộ: coordinator@example.com / coord123</Text>
           </View>
-
-          {/* Login Button */}
-          <TouchableOpacity
-            style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            <Text style={styles.loginBtnText}>
-              {loading ? '⏳ Đang đăng nhập...' : '🔓 ĐĂNG NHẬP'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>hoặc</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Back to Citizen */}
-          <TouchableOpacity
-            style={styles.citizenBtn}
-            onPress={() => navigation.goBack()}
-            disabled={loading}
-          >
-            <Text style={styles.citizenBtnText}>
-              👤 QUAY LẠI TRANG NGƯỜI DÂN
-            </Text>
-          </TouchableOpacity>
         </View>
 
-        {/* Footer Info */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Bạn là thành viên đội cứu hộ? Đăng nhập để quản lý nhiệm vụ cứu hộ.
+            Chưa có tài khoản?{' '}
+            <Text style={styles.signupLink} onPress={() => navigation.navigate('Signup')}>Đăng ký</Text>
           </Text>
         </View>
       </ScrollView>
@@ -181,181 +130,61 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = {
-  container: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-    paddingVertical: 12,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#1a1a1a',
-  },
-  iconContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  container: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32, flexGrow: 1 },
+  header: { alignItems: 'center', marginBottom: 24 },
   iconBox: {
-    width: 100,
-    height: 100,
-    backgroundColor: '#fff',
-    borderRadius: 24,
+    width: 64,
+    height: 64,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#4277a9',
-    shadowColor: '#4277a9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 12,
   },
-  titleSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#1a1a1a',
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#666',
-    textAlign: 'center',
-  },
-  form: {
-    gap: 16,
-  },
-  formGroup: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#4a4a4a',
-    marginLeft: 4,
-  },
-  inputContainer: {
+  iconText: { fontSize: 12, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 4, letterSpacing: 0.5 },
+  headerSubtitle: { fontSize: 13, color: colors.textSecondary },
+  roleTabs: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#ddd',
+    backgroundColor: colors.gray200,
     borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    height: 56,
+    padding: 4,
+    marginBottom: 20,
   },
+  roleTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  roleTabActive: { backgroundColor: colors.surface, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  roleTabText: { fontSize: 13, fontWeight: '600', color: colors.gray600 },
+  roleTabTextActive: { color: colors.primary },
+  form: { gap: 16 },
+  formGroup: { gap: 6 },
+  label: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
   input: {
-    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.gray300,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 46,
     fontSize: 15,
-    fontWeight: '500',
-    color: '#1a1a1a',
+    color: colors.text,
   },
-  demoBox: {
-    backgroundColor: '#f0f9ff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  demoTitle: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#1e40af',
-    marginBottom: 6,
-  },
-  demoText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#1e40af',
-    marginBottom: 4,
-    fontFamily: 'monospace',
-  },
+  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.gray300, borderRadius: 10, paddingHorizontal: 14 },
+  inputFlex: { flex: 1, height: 46, fontSize: 15, color: colors.text, paddingVertical: 0 },
+  togglePwd: { fontSize: 13, color: colors.primary, fontWeight: '600', paddingVertical: 12 },
   loginBtn: {
-    backgroundColor: '#4277a9',
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#4277a9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  loginBtnDisabled: {
-    opacity: 0.6,
-  },
-  loginBtnText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#fff',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginVertical: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#ddd',
-  },
-  dividerText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#999',
-  },
-  citizenBtn: {
-    borderWidth: 2,
-    borderColor: '#d32f2f',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  citizenBtnText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#d32f2f',
-    textTransform: 'uppercase',
-  },
-  footer: {
-    marginTop: 32,
-    padding: 16,
-    backgroundColor: '#fff8f8',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ffdddd',
-  },
-  footerText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#d32f2f',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
+  loginBtnDisabled: { opacity: 0.7 },
+  loginBtnText: { fontSize: 15, fontWeight: '700', color: colors.white },
+  demoBox: { backgroundColor: colors.gray100, borderRadius: 10, padding: 12, marginTop: 16, borderWidth: 1, borderColor: colors.gray200 },
+  demoTitle: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 6 },
+  demoText: { fontSize: 12, color: colors.gray600, marginBottom: 2 },
+  footer: { marginTop: 24, alignItems: 'center' },
+  footerText: { fontSize: 13, color: colors.textSecondary },
+  signupLink: { fontWeight: '700', color: colors.primary },
 };

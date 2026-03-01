@@ -10,20 +10,31 @@ import {
   StatusBar,
   Dimensions,
   FlatList,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { reliefCategories, emergencyNumbers } from '../../data/mockData';
+import { Ionicons } from '@expo/vector-icons';
+import { reliefCategories, emergencyNumbers, addMockRescueRequest, REQUEST_CATEGORY, MOCK_CITIZEN_ID } from '../../data/mockData';
+import { colors } from '../../constants/theme';
+import { getCurrentLocationWithFallback } from '../../utils/location';
+import { useAuth } from '../../contexts/AuthContext';
+import { createRescueRequest } from '../../services/rescueRequests';
 
 const { width } = Dimensions.get('window');
 
 export default function ReliefForm({ navigation }) {
+  const { user } = useAuth();
+  const [locationLoading, setLocationLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     address: '',
+    province_city: '',
     selectedItems: [],
     description: '',
+    num_people: 1,
     images: [],
+    location: null,
   });
 
   const toggleCategory = (categoryId) => {
@@ -33,10 +44,63 @@ export default function ReliefForm({ navigation }) {
     setFormData({ ...formData, selectedItems: updated });
   };
 
-  const handleSubmit = () => {
-    // TODO: Submit form
-    alert('Yêu cầu đã được gửi!');
-    navigation.goBack();
+  const handleGetCurrentLocation = async () => {
+    setLocationLoading(true);
+    try {
+      const result = await getCurrentLocationWithFallback();
+      setFormData((prev) => ({
+        ...prev,
+        location: { lat: result.lat, lng: result.lng },
+      }));
+      const msg = result.isFromCache
+        ? `Đã dùng vị trí gần đây (có thể kém chính xác): ${result.lat.toFixed(5)}, ${result.lng.toFixed(5)}`
+        : `Đã lấy vị trí: ${result.lat.toFixed(5)}, ${result.lng.toFixed(5)}`;
+      Alert.alert('Thành công', msg);
+    } catch (err) {
+      const message =
+        err.message === 'PERMISSION_DENIED'
+          ? 'Ứng dụng cần quyền vị trí để xác định nơi cần cứu trợ. Vui lòng bật trong Cài đặt.'
+          : err.message === 'LOCATION_SERVICES_OFF'
+          ? 'Vui lòng bật dịch vụ vị trí (GPS) trong Cài đặt thiết bị.'
+          : err.message === 'TIMEOUT' || (err.message && err.message.includes('timeout'))
+          ? 'Không lấy được vị trí kịp thời. Hãy đảm bảo GPS bật, ra chỗ thoáng và thử lại.'
+          : err.message || 'Vui lòng bật GPS và thử lại.';
+      Alert.alert('Không lấy được vị trí', message);
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    const selectedNames = reliefCategories
+      .filter((c) => formData.selectedItems.includes(c.id))
+      .map((c) => c.name)
+      .join(', ');
+    const fullDescription = [
+      selectedNames && `Nhu cầu: ${selectedNames}.`,
+      formData.description,
+    ].filter(Boolean).join(' ');
+    const payload = {
+      category: REQUEST_CATEGORY.SUPPLIES,
+      contact_name: formData.name,
+      phone_number: formData.phone,
+      province_city: formData.province_city || 'Chưa chọn',
+      address: formData.address,
+      location_type: formData.location ? 'gps' : (formData.address ? 'manual' : 'manual'),
+      latitude: formData.location?.lat,
+      longitude: formData.location?.lng,
+      description: fullDescription || 'Cần nhu yếu phẩm',
+      num_people: formData.num_people || 1,
+      priority: 'medium',
+      user_id: user?.id || MOCK_CITIZEN_ID,
+    };
+    try {
+      await createRescueRequest(payload);
+      Alert.alert('Thành công', 'Yêu cầu tiếp tế đã được gửi!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    } catch (err) {
+      const newReq = addMockRescueRequest(payload);
+      Alert.alert('Đã gửi (offline)', `Yêu cầu tiếp tế đã lưu. Mã: ${newReq.code}`, [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    }
   };
 
   const renderCategoryItem = ({ item }) => (
@@ -54,7 +118,7 @@ export default function ReliefForm({ navigation }) {
         ]}
       >
         {formData.selectedItems.includes(item.id) && (
-          <MaterialIcons name="check" size={16} color="#fff" />
+          <Ionicons name="checkmark" size={14} color={colors.white} />
         )}
       </View>
       <Text style={styles.categoryName}>{item.name}</Text>
@@ -62,17 +126,17 @@ export default function ReliefForm({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={{fontSize: 20}}>‹</Text>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
           <View style={styles.headerIcon}>
-            <Text style={{fontSize: 16}}>📦</Text>
+            <Ionicons name="cube" size={18} color={colors.white} />
           </View>
           <Text style={styles.headerText}>Nhu Yếu Phẩm</Text>
         </View>
@@ -106,12 +170,7 @@ export default function ReliefForm({ navigation }) {
 
           <View style={styles.inputGroup}>
             <View style={styles.inputWithIcon}>
-              <MaterialIcons
-                name="badge"
-                size={20}
-                color="#999"
-                style={styles.inputIcon}
-              />
+              <Ionicons name="person-circle-outline" size={20} color="#999" style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
                 placeholder="Họ và tên"
@@ -123,12 +182,7 @@ export default function ReliefForm({ navigation }) {
             </View>
 
             <View style={styles.inputWithIcon}>
-              <MaterialIcons
-                name="call"
-                size={20}
-                color="#999"
-                style={styles.inputIcon}
-              />
+              <Ionicons name="call" size={20} color="#999" style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
                 placeholder="Số điện thoại"
@@ -151,6 +205,16 @@ export default function ReliefForm({ navigation }) {
             <Text style={styles.sectionTitle}>Vị trí cần cứu trợ</Text>
           </View>
 
+          <View style={styles.inputWithIcon}>
+            <Ionicons name="location" size={20} color="#999" style={styles.inputIcon} />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Tỉnh / Thành phố"
+              value={formData.province_city}
+              onChangeText={(text) => setFormData({ ...formData, province_city: text })}
+            />
+          </View>
+
           <TextInput
             style={[styles.textInput, styles.textArea]}
             placeholder="Địa chỉ chi tiết (Số nhà, ngõ, thôn...)"
@@ -162,9 +226,19 @@ export default function ReliefForm({ navigation }) {
             }
           />
 
-          <TouchableOpacity style={styles.autoLocationBtn}>
-            <Text style={{fontSize: 16}}>📍</Text>
-            <Text style={styles.autoLocationText}>TỰ ĐỘNG XÁC VỊ</Text>
+          <TouchableOpacity
+            style={styles.autoLocationBtn}
+            onPress={handleGetCurrentLocation}
+            disabled={locationLoading}
+          >
+            {locationLoading ? (
+              <ActivityIndicator size="small" color={colors.relief} />
+            ) : (
+              <Ionicons name="locate" size={18} color={colors.relief} />
+            )}
+            <Text style={styles.autoLocationText}>
+              {locationLoading ? 'Đang lấy vị trí...' : 'TỰ ĐỘNG XÁC VỊ'}
+            </Text>
           </TouchableOpacity>
 
           <View style={styles.mapPreview}>
@@ -176,9 +250,9 @@ export default function ReliefForm({ navigation }) {
             />
             <View style={styles.mapOverlay}>
               <View style={styles.mapOverlayContent}>
-              <Text style={{fontSize: 14}}>👆</Text>
-                <Text style={styles.mapOverlayText}>Ghim trên bản đồ</Text>
-              </View>
+              <Ionicons name="hand-left" size={18} color={colors.gray600} />
+              <Text style={styles.mapOverlayText}>Ghim trên bản đồ</Text>
+            </View>
             </View>
           </View>
         </View>
@@ -202,6 +276,16 @@ export default function ReliefForm({ navigation }) {
             style={{ marginHorizontal: -6 }}
           />
 
+          <View style={styles.descriptionSection}>
+            <Text style={styles.descriptionLabel}>Số người / hộ cần hỗ trợ</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="VD: 3"
+              keyboardType="number-pad"
+              value={String(formData.num_people)}
+              onChangeText={(text) => setFormData({ ...formData, num_people: parseInt(text, 10) || 1 })}
+            />
+          </View>
           <View style={styles.descriptionSection}>
             <Text style={styles.descriptionLabel}>Mô tả thêm</Text>
             <TextInput
@@ -227,7 +311,7 @@ export default function ReliefForm({ navigation }) {
           </View>
 
           <TouchableOpacity style={styles.photoUpload}>
-            <Text style={{fontSize: 32}}>📷</Text>
+            <Ionicons name="camera" size={36} color={colors.gray600} />
             <Text style={styles.photoUploadText}>Tải ảnh khu vực</Text>
             <Text style={styles.photoUploadSubtext}>Tối đa 5 ảnh</Text>
           </TouchableOpacity>
@@ -247,7 +331,7 @@ export default function ReliefForm({ navigation }) {
           {emergencyNumbers.map((item, index) => (
             <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity style={styles.emergencyLink}>
-                <Text style={{fontSize: 14}}>📞</Text>
+                <Ionicons name="call" size={16} color={colors.gray600} />
                 <Text style={styles.emergencyLinkText}>{item.number}</Text>
               </TouchableOpacity>
               {index < emergencyNumbers.length - 1 && (
@@ -279,7 +363,7 @@ const styles = {
   headerIcon: {
     width: 32,
     height: 32,
-    backgroundColor: '#f97316',
+    backgroundColor: colors.relief,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -306,17 +390,17 @@ const styles = {
   progressPercent: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#f97316',
+    color: colors.relief,
   },
   progressBar: {
     height: 6,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.gray300,
     borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#f97316',
+    backgroundColor: colors.relief,
   },
   container: {
     flex: 1,
@@ -335,7 +419,7 @@ const styles = {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+    backgroundColor: colors.reliefLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -343,7 +427,7 @@ const styles = {
   sectionNumberText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f97316',
+    color: colors.relief,
   },
   sectionTitle: {
     fontSize: 18,
@@ -389,15 +473,15 @@ const styles = {
     marginTop: 12,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.3)',
+    borderColor: colors.reliefLight,
     borderRadius: 12,
-    backgroundColor: 'rgba(249, 115, 22, 0.05)',
+    backgroundColor: colors.reliefLight,
     gap: 8,
   },
   autoLocationText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#f97316',
+    color: colors.relief,
   },
   mapPreview: {
     marginTop: 12,
@@ -452,8 +536,8 @@ const styles = {
     gap: 10,
   },
   categoryItemSelected: {
-    backgroundColor: 'rgba(249, 115, 22, 0.05)',
-    borderColor: '#f97316',
+    backgroundColor: colors.reliefLight,
+    borderColor: colors.relief,
   },
   checkbox: {
     width: 20,
@@ -466,8 +550,13 @@ const styles = {
     backgroundColor: '#fff',
   },
   checkboxSelected: {
-    backgroundColor: '#f97316',
-    borderColor: '#f97316',
+    backgroundColor: colors.relief,
+    borderColor: colors.relief,
+  },
+  checkmark: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.white,
   },
   categoryName: {
     fontSize: 14,
@@ -514,12 +603,12 @@ const styles = {
     paddingBottom: 20,
   },
   submitBtn: {
-    backgroundColor: '#f97316',
+    backgroundColor: colors.relief,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: 'rgba(249, 115, 22, 0.3)',
+    shadowColor: colors.relief,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -528,7 +617,7 @@ const styles = {
   submitBtnText: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#fff',
+    color: colors.white,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

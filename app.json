@@ -5,23 +5,21 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
+    "splash": { "resizeMode": "contain", "backgroundColor": "#ffffff" },
     "assetBundlePatterns": ["**/*"],
+    "plugins": ["expo-location"],
     "ios": {
-      "supportsTabletMode": true
+      "supportsTabletMode": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Ứng dụng cần vị trí để gửi tọa độ khi cần cứu hộ / cứu trợ."
+      }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
-      },
+      "adaptiveIcon": { "backgroundColor": "#ffffff" },
       "package": "com.example.floodrescue",
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    }
+    "web": { "favicon": "./assets/favicon.png" }
   }
 }

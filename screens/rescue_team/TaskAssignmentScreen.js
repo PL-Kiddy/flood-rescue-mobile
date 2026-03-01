@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,68 +7,149 @@ import {
   Image,
   SafeAreaView,
   StatusBar,
+  Alert,
+  Modal,
+  TextInput,
+  Linking,
+  Platform,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import MapView, { Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../constants/theme';
+import {
+  getMockAssignedTasks,
+  MOCK_TEAM_ID,
+  updateMockRescueRequest,
+  MISSION_STATUS,
+  REQUEST_STATUS,
+  MISSION_STATUS_LABEL,
+} from '../../data/mockData';
+
+const DEFAULT_MAP_REGION = { latitude: 10.0343, longitude: 105.7889, latitudeDelta: 0.02, longitudeDelta: 0.02 };
 
 export default function TaskAssignmentScreen({ navigation }) {
-  const [currentStep, setCurrentStep] = useState(1);
+  const tasks = useMemo(() => getMockAssignedTasks(MOCK_TEAM_ID), []);
+  const currentTask = tasks.find((t) => t.mission_status !== MISSION_STATUS.DECLINED) || tasks[0];
+  const [task, setTask] = useState(currentTask);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completionNotes, setCompletionNotes] = useState('');
 
-  const handleStatusUpdate = (status) => {
-    // Handle status update
-    alert(`Status updated to: ${status}`);
+  const refreshTask = () => {
+    const updated = getMockAssignedTasks(MOCK_TEAM_ID).find((t) => t.id === task?.id);
+    if (updated) setTask(updated);
+    else setTask(getMockAssignedTasks(MOCK_TEAM_ID)[0]);
+  };
+
+  const handleAccept = () => {
+    if (!task) return;
+    updateMockRescueRequest(task.id, { mission_status: MISSION_STATUS.ACCEPTED });
+    refreshTask();
+    Alert.alert('Đã nhận', 'Bạn đã nhận nhiệm vụ. Bắt đầu di chuyển khi sẵn sàng.');
+  };
+
+  const handleDecline = () => {
+    if (!task) return;
+    Alert.alert(
+      'Từ chối nhiệm vụ',
+      'Bạn có chắc muốn từ chối? (VD: hỏng phương tiện, không đủ nhân lực)',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Từ chối',
+          style: 'destructive',
+          onPress: () => {
+            updateMockRescueRequest(task.id, {
+              mission_status: MISSION_STATUS.DECLINED,
+              assigned_team_id: null,
+              assigned_team: null,
+              status: REQUEST_STATUS.PENDING_VERIFICATION,
+            });
+            refreshTask();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleStatusUpdate = (newStatus) => {
+    if (!task) return;
+    if (newStatus === MISSION_STATUS.COMPLETED) {
+      setShowCompleteModal(true);
+      return;
+    }
+    updateMockRescueRequest(task.id, { mission_status: newStatus });
+    refreshTask();
+  };
+
+  const handleCompleteSubmit = () => {
+    if (!task) return;
+    updateMockRescueRequest(task.id, {
+      mission_status: MISSION_STATUS.COMPLETED,
+      status: REQUEST_STATUS.COMPLETED,
+      completion_notes: completionNotes.trim() || 'Đã hoàn thành nhiệm vụ.',
+    });
+    setShowCompleteModal(false);
+    setCompletionNotes('');
+    refreshTask();
+    Alert.alert('Hoàn thành', 'Nhiệm vụ đã được đánh dấu hoàn thành.');
+  };
+
+  const isAssigned = task?.mission_status === MISSION_STATUS.ASSIGNED;
+  const canUpdateStatus = task && [MISSION_STATUS.ACCEPTED, MISSION_STATUS.IN_TRANSIT, MISSION_STATUS.ON_SITE].includes(task.mission_status);
+  const isCompleted = task?.mission_status === MISSION_STATUS.COMPLETED;
+
+  const taskCoords = task?.latitude != null && task?.longitude != null
+    ? { latitude: Number(task.latitude), longitude: Number(task.longitude) }
+    : null;
+  const mapRegion = taskCoords
+    ? { ...taskCoords, latitudeDelta: 0.02, longitudeDelta: 0.02 }
+    : DEFAULT_MAP_REGION;
+
+  const openDirections = () => {
+    const lat = task?.latitude ?? mapRegion.latitude;
+    const lng = task?.longitude ?? mapRegion.longitude;
+    const url = Platform.select({
+      ios: `maps://app?daddr=${lat},${lng}`,
+      default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+    });
+    Linking.openURL(url);
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f6f7f8' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface }]}>
         <View style={styles.headerLeft}>
-          <View style={styles.headerIcon}>
-            <Text style={{ fontSize: 18 }}>🚨</Text>
-          </View>
           <Text style={styles.headerTitle}>CỨU HỘ VN</Text>
         </View>
         <View style={styles.activeMission}>
           <View style={styles.activeDot} />
-          <Text style={styles.activeMissionCode}>#RE-9921</Text>
+          <Text style={styles.activeMissionCode}>{task?.code || '#RE-xxxx'}</Text>
         </View>
-        <Image
-          source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDuyHJht1Ui_YnTJY1DSTJcepL41z4IZMSumUIurIVYz9lef0hO7-k_3uGKOnurRxgL8dyP3uXt8LLnxj0am06PnWSIY2rEbTIWwBVHMyaX-Ubx2HcV_jmPv0vWeY7QjH7wnnbSuvmdF3a96wV66E8_Xkkm4SJzfiy5u8pZsR7Jg1GT1YRXxBBTCjsOtcNX1pL-AlsMP3II1iJxEO0E1UYqEpwzWTj6UZeSCvlEbrTbzEdxkZ8BFHsX9mCnN-_TbKVl9lw6NXuuRBM' }}
-          style={styles.avatar}
-        />
+        <Image source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDuyHJht1Ui_YnTJY1DSTJcepL41z4IZMSumUIurIVYz9lef0hO7-k_3uGKOnurRxgL8dyP3uXt8LLnxj0am06PnWSIY2rEbTIWwBVHMyaX-Ubx2HcV_jmPv0vWeY7QjH7wnnbSuvmdF3a96wV66E8_Xkkm4SJzfiy5u8pZsR7Jg1GT1YRXxBBTCjsOtcNX1pL-AlsMP3II1iJxEO0E1UYqEpwzWTj6UZeSCvlEbrTbzEdxkZ8BFHsX9mCnN-_TbKVl9lw6NXuuRBM' }} style={styles.avatar} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Map Section */}
         <View style={styles.mapSection}>
-          <Image
-            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCqsK5_7Vc18hUsLgo-3VX5DbLnuwZPf9azv3cTD2FliDfLyxFfdnrBjjWEsOLALQ4YJEpBxzs25_s3Y7-QJO951TAMsKosAyc77QSXYawg1XwcFSXjoI-mLbefxByCLxQ--UL5hB9zS7tetR6EnUki2QhIznRDFm39OTme-ajQZeJ2t-lRsUTGMI3A8wR28iescpGhCi0xvNxcopHFs5lDxbDWooKArxdxrGDyuDLiY-F2x6Rco_J6VoKvES0R-r43ymIAUyiYKZk' }}
-            style={styles.mapImage}
-          />
-          <View style={styles.mapOverlay} />
+          {Platform.OS !== 'web' ? (
+            <MapView style={styles.mapImage} initialRegion={mapRegion} scrollEnabled={false}>
+              {taskCoords && <Marker coordinate={taskCoords} title="Vị trí cứu hộ" pinColor={colors.sos} />}
+            </MapView>
+          ) : (
+            <Image source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCqsK5_7Vc18hUsLgo-3VX5DbLnuwZPf9azv3cTD2FliDfLyxFfdnrBjjWEsOLALQ4YJEpBxzs25_s3Y7-QJO951TAMsKosAyc77QSXYawg1XwcFSXjoI-mLbefxByCLxQ--UL5hB9zS7tetR6EnUki2QhIznRDFm39OTme-ajQZeJ2t-lRsUTGMI3A8wR28iescpGhCi0xvNxcopHFs5lDxbDWooKArxdxrGDyuDLiY-F2x6Rco_J6VoKvES0R-r43ymIAUyiYKZk' }} style={styles.mapImage} />
+          )}
           
-          {/* Distance Info */}
           <View style={styles.distanceBox}>
-            <Text style={{ fontSize: 12 }}>📍 Khoảng cách</Text>
-            <View style={styles.distanceValue}>
-              <Text style={{ fontSize: 20 }}>🛣️</Text>
-              <Text style={styles.distanceText}>1.2 km</Text>
-            </View>
+            <Text style={{ fontSize: 12, color: colors.gray600 }}>Khoảng cách</Text>
+            <Text style={styles.distanceText}>1.2 km</Text>
           </View>
 
-          {/* Navigation Button */}
-          <TouchableOpacity style={styles.navButton}>
-            <Text style={{ fontSize: 16 }}>📍</Text>
-            <View>
-              <Text style={styles.navButtonText}>Dẫn đường</Text>
-            </View>
-            <Text style={{ fontSize: 18 }}>›</Text>
+          <TouchableOpacity style={styles.navButton} onPress={openDirections}>
+            <Text style={styles.navButtonText}>Dẫn đường</Text>
           </TouchableOpacity>
-
-          {/* Route Path SVG Simulation */}
-          <View style={styles.routePath} />
         </View>
 
         {/* Task Details */}
@@ -76,42 +157,41 @@ export default function TaskAssignmentScreen({ navigation }) {
           <View style={styles.victimSection}>
             <View>
               <Text style={styles.detailLabel}>Nạn nhân</Text>
-              <Text style={styles.victimName}>Nguyễn Văn An</Text>
+              <Text style={styles.victimName}>{task?.contact_name || '—'}</Text>
             </View>
-            <TouchableOpacity style={styles.callBtn}>
-              <Text style={{ fontSize: 18 }}>📞</Text>
+            <TouchableOpacity style={styles.callBtn} onPress={() => task?.phone_number && Linking.openURL(`tel:${task.phone_number}`)}>
+              <Ionicons name="call" size={22} color={colors.white} />
             </TouchableOpacity>
           </View>
 
           {/* Special Notes */}
+          {task?.description ? (
           <View style={styles.specialNotes}>
-            <Text style={styles.specialNotesIcon}>📝</Text>
+            <Ionicons name="document-text" size={20} color={colors.warning} />
             <View>
               <Text style={styles.specialNotesLabel}>Ghi chú đặc biệt</Text>
-              <Text style={styles.specialNotesText}>
-                Cụ ông 82 tuổi, đi lại khó khăn. Đang ở tầng 2, nước dâng cao.
-              </Text>
+              <Text style={styles.specialNotesText}>{task.description}</Text>
             </View>
           </View>
+          ) : null}
 
-          {/* Medical Conditions */}
+          {/* Medical Conditions - optional */}
+          {task?.mission_status && (
           <View style={styles.conditionsRow}>
             <View style={styles.conditionBadge}>
-              <Text style={styles.conditionText}>Cao huyết áp</Text>
-            </View>
-            <View style={styles.conditionBadge}>
-              <Text style={styles.conditionText}>Cần cáng</Text>
+              <Text style={styles.conditionText}>{MISSION_STATUS_LABEL[task.mission_status]}</Text>
             </View>
           </View>
+          )}
 
           {/* Location Details */}
           <View style={styles.locationSection}>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Text style={{ fontSize: 18 }}>📍</Text>
+              <Ionicons name="location" size={20} color={colors.gray600} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.detailLabel}>Địa chỉ cứu hộ</Text>
                 <Text style={styles.locationText}>
-                  123 Đường Lê Lợi, Phường Bến Thành, Quận 1
+                  {task?.address || task?.province_city || '—'}
                 </Text>
               </View>
             </View>
@@ -140,43 +220,101 @@ export default function TaskAssignmentScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* Status Buttons */}
+      {/* Status Buttons or Accept/Decline */}
       <View style={styles.statusButtonsContainer}>
-        <View style={styles.statusButtonsGrid}>
-          <TouchableOpacity style={[styles.statusBtn, styles.statusBtnMoving]}>
-            <Text style={{ fontSize: 20 }}>🚗</Text>
-            <Text style={styles.statusBtnLabel}>Đang di chuyển</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.statusBtn, styles.statusBtnArrived]}>
-            <Text style={{ fontSize: 20 }}>📍</Text>
-            <Text style={styles.statusBtnLabel}>Đã đến nơi</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statusBtn, styles.statusBtnCompleted]}
-            onPress={() => handleStatusUpdate('Completed')}
-          >
-            <Text style={{ fontSize: 20 }}>✓</Text>
-            <Text style={styles.statusBtnLabelCompleted}>Hoàn thành</Text>
-          </TouchableOpacity>
-        </View>
+        {!task ? (
+          <Text style={styles.noTaskText}>Không có nhiệm vụ nào được phân công.</Text>
+        ) : isAssigned ? (
+          <View style={styles.statusButtonsGrid}>
+            <TouchableOpacity style={[styles.statusBtn, styles.statusBtnAccept]} onPress={handleAccept}>
+              <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+              <Text style={styles.statusBtnLabel}>Nhận nhiệm vụ</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.statusBtn, styles.statusBtnDecline]} onPress={handleDecline}>
+              <Ionicons name="close-circle" size={22} color={colors.sos} />
+              <Text style={[styles.statusBtnLabel, { color: colors.sos }]}>Từ chối</Text>
+            </TouchableOpacity>
+          </View>
+        ) : isCompleted ? (
+          <View style={styles.completedBadge}>
+            <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+            <Text style={styles.completedBadgeText}>Đã hoàn thành</Text>
+            {task.completion_notes ? (
+              <Text style={styles.completionNotesPreview} numberOfLines={2}>{task.completion_notes}</Text>
+            ) : null}
+          </View>
+        ) : canUpdateStatus ? (
+          <View style={styles.statusButtonsGrid}>
+            <TouchableOpacity style={[styles.statusBtn, styles.statusBtnMoving]} onPress={() => handleStatusUpdate(MISSION_STATUS.IN_TRANSIT)}>
+              <Ionicons name="car" size={22} color={colors.primary} />
+              <Text style={styles.statusBtnLabel}>Đang di chuyển</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.statusBtn, styles.statusBtnArrived]} onPress={() => handleStatusUpdate(MISSION_STATUS.ON_SITE)}>
+              <Ionicons name="location" size={22} color={colors.relief} />
+              <Text style={styles.statusBtnLabel}>Đã đến nơi</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.statusBtn, styles.statusBtnCompleted]}
+              onPress={() => handleStatusUpdate(MISSION_STATUS.COMPLETED)}
+            >
+              <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+              <Text style={styles.statusBtnLabelCompleted}>Hoàn thành</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
+
+      <Modal visible={showCompleteModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Báo cáo hoàn thành</Text>
+            <Text style={styles.modalSubtitle}>Số người cứu được, ghi chú, tổn thất (nếu có)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="VD: Đã sơ tán 5 người đến điểm an toàn. Không có tổn thất."
+              placeholderTextColor={colors.gray500}
+              value={completionNotes}
+              onChangeText={setCompletionNotes}
+              multiline
+              numberOfLines={4}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setShowCompleteModal(false); setCompletionNotes(''); }}>
+                <Text style={styles.modalCancelText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleCompleteSubmit}>
+                <Text style={styles.modalSubmitText}>Gửi báo cáo</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={[styles.navItem, styles.navItemActive]}>
-          <Text style={{ fontSize: 18 }}>📋</Text>
+        <TouchableOpacity
+          style={[styles.navItem, styles.navItemActive]}
+          onPress={() => navigation.navigate('TaskAssignment')}
+        >
+          <Ionicons name="document-text" size={22} color={colors.primary} />
           <Text style={styles.navLabelActive}>Nhiệm vụ</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={{ fontSize: 18 }}>🗺️</Text>
-          <Text style={styles.navLabel}>Bản đồ</Text>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => navigation.navigate('TeamMembers')}
+        >
+          <Ionicons name="people" size={22} color={colors.gray500} />
+          <Text style={styles.navLabel}>Thành viên</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={{ fontSize: 18 }}>📜</Text>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => navigation.navigate('TaskHistory')}
+        >
+          <Ionicons name="time" size={22} color={colors.gray500} />
           <Text style={styles.navLabel}>Lịch sử</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
-          <Text style={{ fontSize: 18 }}>👤</Text>
+          <Ionicons name="person" size={22} color={colors.gray500} />
           <Text style={styles.navLabel}>Cá nhân</Text>
         </TouchableOpacity>
       </View>
@@ -201,7 +339,7 @@ const styles = {
     gap: 8,
   },
   headerIcon: {
-    backgroundColor: '#4277a9',
+    backgroundColor: colors.primary,
     width: 32,
     height: 32,
     borderRadius: 6,
@@ -270,6 +408,11 @@ const styles = {
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
+  distanceLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4b5563',
+  },
   distanceValue: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -285,7 +428,7 @@ const styles = {
     position: 'absolute',
     bottom: 16,
     right: 16,
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -336,7 +479,7 @@ const styles = {
     color: '#1a1a1a',
   },
   callBtn: {
-    backgroundColor: '#28A745',
+    backgroundColor: colors.success,
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -496,34 +639,90 @@ const styles = {
     color: '#22c55e',
     textAlign: 'center',
   },
+  statusBtnAccept: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#86efac',
+  },
+  statusBtnDecline: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+  },
+  completedBadgeText: { fontSize: 14, fontWeight: '800', color: colors.success },
+  completionNotesPreview: { fontSize: 11, color: colors.gray600, marginTop: 4, textAlign: 'center' },
+  noTaskText: { fontSize: 13, color: colors.gray600, textAlign: 'center', paddingVertical: 16 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 6 },
+  modalSubtitle: { fontSize: 13, color: colors.gray600, marginBottom: 16 },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.gray300,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 14,
+    color: colors.text,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  modalButtons: { flexDirection: 'row', gap: 12 },
+  modalCancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: colors.gray400 },
+  modalCancelText: { fontSize: 15, fontWeight: '700', color: colors.gray600 },
+  modalSubmitBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12, backgroundColor: colors.success },
+  modalSubmitText: { fontSize: 15, fontWeight: '800', color: colors.white },
   bottomNav: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#fff',
+    backgroundColor: '#1e1e1e',
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    paddingVertical: 10,
-    paddingBottom: 16,
+    borderTopColor: '#374151',
+    height: 64,
   },
   navItem: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   navItemActive: {
-    opacity: 1,
+    borderTopWidth: 3,
+    borderTopColor: colors.primary,
+  },
+  navIcon: {
+    fontSize: 20,
+  },
+  navIconActive: {
+    fontSize: 20,
   },
   navLabel: {
     fontSize: 10,
-    fontWeight: 'bold',
-    color: '#999',
+    fontWeight: '700',
+    color: '#6b7280',
+    textTransform: 'uppercase',
   },
   navLabelActive: {
     fontSize: 10,
-    fontWeight: 'bold',
-    color: '#4277a9',
+    fontWeight: '700',
+    color: colors.primary,
+    textTransform: 'uppercase',
   },
 };

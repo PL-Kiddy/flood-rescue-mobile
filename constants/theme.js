@@ -1,22 +1,24 @@
-// Color Theme Configuration
+// Color Theme Configuration - Bảng màu thống nhất
 export const colors = {
-  // Primary colors
+  // Primary
   primary: '#0F52BA',
   primaryDark: '#0A3D8F',
-  
-  // Status colors
-  sos: '#D32F2F',
-  warning: '#F57C00',
+  primaryLight: 'rgba(15, 82, 186, 0.08)',
+
+  // Chức năng
+  sos: '#C62828',
+  sosLight: 'rgba(198, 40, 40, 0.12)',
+  relief: '#E65100',
+  reliefLight: 'rgba(230, 81, 0, 0.08)',
   success: '#2E7D32',
-  info: '#2196F3',
-  
-  // Relief theme
-  relief: '#F97316',
-  reliefDark: '#EA580C',
-  
-  // Neutral colors
+  successLight: 'rgba(46, 125, 50, 0.12)',
+  warning: '#F57C00',
+  info: '#1565C0',
+
+  // Neutral
   white: '#FFFFFF',
-  black: '#000000',
+  black: '#1A1A1A',
+  gray50: '#FAFAFA',
   gray100: '#F5F5F5',
   gray200: '#EEEEEE',
   gray300: '#E0E0E0',
@@ -26,16 +28,17 @@ export const colors = {
   gray700: '#616161',
   gray800: '#424242',
   gray900: '#212121',
-  
+
   // Background
-  background: '#f0f2f5',
-  backgroundLight: '#fdf8f6',
-  backgroundDark: '#1c1e22',
-  
+  background: '#F5F5F5',
+  backgroundLight: '#FFFFFF',
+  surface: '#FFFFFF',
+  surfaceDark: '#1E2125',
+
   // Text
-  text: '#131416',
-  textSecondary: '#666666',
-  textTertiary: '#999999',
+  text: '#1A1A1A',
+  textSecondary: '#616161',
+  textTertiary: '#9E9E9E',
 };
 
 // Typography

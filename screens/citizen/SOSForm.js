@@ -8,17 +8,29 @@ import {
   Image,
   SafeAreaView,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../constants/theme';
+import { addMockRescueRequest, REQUEST_CATEGORY, PRIORITY_LEVELS } from '../../data/mockData';
+import { getCurrentLocationWithFallback } from '../../utils/location';
+import { useAuth } from '../../contexts/AuthContext';
+import { createRescueRequest } from '../../services/rescueRequests';
 
 export default function SOSForm({ navigation }) {
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    province_city: '',
     address: '',
     location: { lat: 21.0285, lng: 105.8542 },
     description: '',
+    num_people: 1,
+    priority: 'high',
     images: [],
   });
 
@@ -34,9 +46,63 @@ export default function SOSForm({ navigation }) {
     }
   };
 
-  const handleSubmit = () => {
-    alert('Yêu cầu SOS đã được gửi!');
-    navigation.navigate('Home');
+  const handleGetCurrentLocation = async () => {
+    setLocationLoading(true);
+    try {
+      const result = await getCurrentLocationWithFallback();
+      setFormData((prev) => ({
+        ...prev,
+        location: { lat: result.lat, lng: result.lng },
+      }));
+      const msg = result.isFromCache
+        ? `Đã dùng vị trí gần đây (có thể kém chính xác): ${result.lat.toFixed(5)}, ${result.lng.toFixed(5)}`
+        : `Đã lấy vị trí: ${result.lat.toFixed(5)}, ${result.lng.toFixed(5)}`;
+      Alert.alert('Thành công', msg);
+    } catch (err) {
+      const message =
+        err.message === 'PERMISSION_DENIED'
+          ? 'Ứng dụng cần quyền vị trí để gửi tọa độ khi cần cứu hộ. Vui lòng bật trong Cài đặt.'
+          : err.message === 'LOCATION_SERVICES_OFF'
+          ? 'Vui lòng bật dịch vụ vị trí (GPS) trong Cài đặt thiết bị.'
+          : err.message === 'TIMEOUT' || (err.message && err.message.includes('timeout'))
+          ? 'Không lấy được vị trí kịp thời. Hãy đảm bảo GPS bật, ra chỗ thoáng và thử lại.'
+          : err.message || 'Vui lòng bật GPS và thử lại.';
+      Alert.alert('Không lấy được vị trí', message);
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    const payload = {
+      category: REQUEST_CATEGORY.RESCUE,
+      phone_number: formData.phone,
+      province_city: formData.province_city || 'Chưa chọn',
+      address: formData.address,
+      location_type: formData.address ? 'manual' : 'gps',
+      location: formData.location,
+      latitude: formData.location?.lat,
+      longitude: formData.location?.lng,
+      description: formData.description,
+      num_people: formData.num_people || 1,
+      priority: formData.priority || 'high',
+      media_urls: formData.images?.length ? formData.images : [],
+    };
+    try {
+      const created = await createRescueRequest(payload);
+      Alert.alert('Thành công', `Yêu cầu SOS đã được gửi! Mã: ${created?.id?.slice(0, 8) || 'OK'}`, [
+        { text: 'OK', onPress: () => navigation.navigate('Home') },
+      ]);
+    } catch (err) {
+      const mockReq = addMockRescueRequest({
+        ...payload,
+        contact_name: formData.name,
+        user_id: user?.id,
+      });
+      Alert.alert('Đã gửi (offline)', `Yêu cầu SOS đã lưu. Mã: ${mockReq.code}`, [
+        { text: 'OK', onPress: () => navigation.navigate('Home') },
+      ]);
+    }
   };
 
   const getProgressWidth = () => {
@@ -81,6 +147,52 @@ export default function SOSForm({ navigation }) {
                     }
                   />
                 </View>
+
+                <View>
+                  <Text style={styles.label}>Tỉnh / Thành phố</Text>
+                  <TextInput
+                    style={styles.largeInput}
+                    placeholder="VD: Cần Thơ, TP. Hồ Chí Minh..."
+                    value={formData.province_city}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, province_city: text })
+                    }
+                  />
+                </View>
+
+                <View>
+                  <Text style={styles.label}>Số người gặp nạn</Text>
+                  <TextInput
+                    style={styles.largeInput}
+                    placeholder="1"
+                    keyboardType="number-pad"
+                    value={String(formData.num_people)}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, num_people: parseInt(text, 10) || 1 })
+                    }
+                  />
+                </View>
+
+                <View>
+                  <Text style={styles.label}>Mức độ ưu tiên</Text>
+                  <View style={styles.priorityRow}>
+                    {PRIORITY_LEVELS.map((p) => (
+                      <TouchableOpacity
+                        key={p.value}
+                        style={[
+                          styles.priorityChip,
+                          formData.priority === p.value && styles.priorityChipActive,
+                        ]}
+                        onPress={() => setFormData({ ...formData, priority: p.value })}
+                      >
+                        <Text style={[
+                          styles.priorityChipText,
+                          formData.priority === p.value && styles.priorityChipTextActive,
+                        ]}>{p.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
               </View>
             </View>
           </View>
@@ -97,9 +209,19 @@ export default function SOSForm({ navigation }) {
                 <Text style={styles.stepTitle}>Vị trí của bạn</Text>
               </View>
 
-              <TouchableOpacity style={styles.autoLocationBtn}>
-                <Text style={{fontSize: 18}}>📍</Text>
-                <Text style={styles.autoLocationText}>LẤY VỊ TRÍ TỰ ĐỘNG</Text>
+              <TouchableOpacity
+                style={styles.autoLocationBtn}
+                onPress={handleGetCurrentLocation}
+                disabled={locationLoading}
+              >
+                {locationLoading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Ionicons name="locate" size={20} color={colors.primary} />
+                )}
+                <Text style={styles.autoLocationText}>
+                  {locationLoading ? 'Đang lấy vị trí...' : 'LẤY VỊ TRÍ TỰ ĐỘNG'}
+                </Text>
               </TouchableOpacity>
 
               <View>
@@ -122,10 +244,10 @@ export default function SOSForm({ navigation }) {
                   style={styles.mapImage}
                 />
                 <View style={styles.locationPinContainer}>
-                  <MaterialIcons
-                    name="location_on"
+                  <Ionicons
+                    name="location"
                     size={48}
-                    color="#d32f2f"
+                    color={colors.sos}
                   />
                 </View>
                 <View style={styles.mapLabel}>
@@ -163,7 +285,7 @@ export default function SOSForm({ navigation }) {
 
               <TouchableOpacity style={styles.photoBtn}>
                 <View style={styles.photoBtnIcon}>
-                  <Text style={{fontSize: 24}}>📷</Text>
+                  <Ionicons name="camera" size={26} color={colors.textSecondary} />
                 </View>
                 <View>
                   <Text style={styles.photoBtnTitle}>Chụp ảnh / Tải lên</Text>
@@ -182,22 +304,19 @@ export default function SOSForm({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f6f7f8' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f6f7f8" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={{fontSize: 24}}>‹</Text>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-
         <View style={styles.headerTitleContainer}>
           <View style={styles.headerIcon}>
-            <Text style={{fontSize: 18}}>🚨</Text>
+            <Ionicons name="alert-circle" size={18} color={colors.white} />
           </View>
           <Text style={styles.headerTitle}>SOS Khẩn Cấp</Text>
         </View>
-
         <View style={{ width: 28 }} />
       </View>
 
@@ -236,7 +355,7 @@ export default function SOSForm({ navigation }) {
           onPress={handlePrevStep}
           disabled={currentStep === 1}
         >
-          <MaterialIcons name="arrow-back" size={20} color={currentStep === 1 ? '#ccc' : '#4277a9'} />
+          <Ionicons name="arrow-back" size={20} color={currentStep === 1 ? colors.gray400 : colors.primary} />
           <Text style={[styles.navBtnText, currentStep === 1 && styles.navBtnTextDisabled]}>
             Trước
           </Text>
@@ -248,14 +367,14 @@ export default function SOSForm({ navigation }) {
             onPress={handleNextStep}
           >
             <Text style={styles.navBtnText}>Tiếp</Text>
-            <MaterialIcons name="arrow-forward" size={20} color="#4277a9" />
+            <Ionicons name="arrow-forward" size={20} color={colors.primary} />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             style={[styles.navBtn, styles.submitBtn]}
             onPress={handleSubmit}
           >
-            <MaterialIcons name="send" size={20} color="#fff" />
+            <Ionicons name="send" size={20} color={colors.white} />
             <Text style={[styles.navBtnText, styles.submitBtnText]}>
               GỬI YÊU CẦU
             </Text>
@@ -290,7 +409,7 @@ const styles = {
   headerIcon: {
     width: 28,
     height: 28,
-    backgroundColor: '#d32f2f',
+    backgroundColor: colors.sos,
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
@@ -298,8 +417,7 @@ const styles = {
   headerTitle: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#d32f2f',
-    textTransform: 'uppercase',
+    color: colors.sos,
   },
   progressContainer: {
     paddingHorizontal: 16,
@@ -321,7 +439,7 @@ const styles = {
   progressPercent: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#4277a9',
+    color: colors.primary,
   },
   progressBar: {
     height: 8,
@@ -331,7 +449,7 @@ const styles = {
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#4277a9',
+    backgroundColor: colors.primary,
   },
   scrollView: {
     flex: 1,
@@ -353,7 +471,7 @@ const styles = {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(66, 119, 169, 0.1)',
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -361,7 +479,7 @@ const styles = {
   stepNumberText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#4277a9',
+    color: colors.primary,
   },
   stepTitle: {
     fontSize: 20,
@@ -406,9 +524,9 @@ const styles = {
   autoLocationBtn: {
     height: 56,
     borderWidth: 2,
-    borderColor: '#4277a9',
+    borderColor: colors.primary,
     borderRadius: 12,
-    backgroundColor: 'rgba(66, 119, 169, 0.05)',
+    backgroundColor: colors.primaryLight,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -417,7 +535,7 @@ const styles = {
   autoLocationText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#4277a9',
+    color: colors.primary,
   },
   mapContainer: {
     height: 160,
@@ -489,6 +607,32 @@ const styles = {
     color: '#999',
     marginTop: 2,
   },
+  priorityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  priorityChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: colors.gray300,
+    backgroundColor: colors.surface,
+  },
+  priorityChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  priorityChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.gray600,
+  },
+  priorityChipTextActive: {
+    color: colors.primary,
+  },
   bottomNav: {
     position: 'absolute',
     bottom: 0,
@@ -509,7 +653,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#4277a9',
+    borderColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 12,
     gap: 6,
@@ -521,16 +665,16 @@ const styles = {
   navBtnText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#4277a9',
+    color: colors.primary,
   },
   navBtnTextDisabled: {
     color: '#ccc',
   },
   submitBtn: {
-    backgroundColor: '#28A745',
-    borderColor: '#28A745',
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   submitBtnText: {
-    color: '#fff',
+    color: colors.white,
   },
 };
