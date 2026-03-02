@@ -110,12 +110,6 @@ export default function LoginScreen({ navigation }) {
           <TouchableOpacity style={[styles.loginBtn, loading && styles.loginBtnDisabled]} onPress={handleLogin} disabled={loading}>
             {loading ? <ActivityIndicator size="small" color={colors.white} /> : <Text style={styles.loginBtnText}>Đăng nhập</Text>}
           </TouchableOpacity>
-
-          <View style={styles.demoBox}>
-            <Text style={styles.demoTitle}>Tài khoản demo API</Text>
-            <Text style={styles.demoText}>Người dân: user@example.com / user123</Text>
-            <Text style={styles.demoText}>Cán bộ: coordinator@example.com / coord123</Text>
-          </View>
         </View>
 
         <View style={styles.footer}>
@@ -181,9 +175,6 @@ const styles = {
   },
   loginBtnDisabled: { opacity: 0.7 },
   loginBtnText: { fontSize: 15, fontWeight: '700', color: colors.white },
-  demoBox: { backgroundColor: colors.gray100, borderRadius: 10, padding: 12, marginTop: 16, borderWidth: 1, borderColor: colors.gray200 },
-  demoTitle: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 6 },
-  demoText: { fontSize: 12, color: colors.gray600, marginBottom: 2 },
   footer: { marginTop: 24, alignItems: 'center' },
   footerText: { fontSize: 13, color: colors.textSecondary },
   signupLink: { fontWeight: '700', color: colors.primary },

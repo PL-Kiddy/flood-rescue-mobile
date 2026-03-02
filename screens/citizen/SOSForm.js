@@ -5,12 +5,13 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Image,
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
 import { REQUEST_CATEGORY, PRIORITY_LEVELS } from '../../data/mockData';
@@ -232,22 +233,37 @@ export default function SOSForm({ navigation }) {
               </View>
 
               <View style={styles.mapContainer}>
-                <Image
-                  source={{
-                    uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDafCwO7PLh_lfW9GUq2yApm6tHdVUZcOXXrjc8hdtjiYtyzvyt3RraNVJMaoiQFREVrJubRlUUeXXewymy54RpjqiLXwQWnLY8dnmI52MHWFIJzfsDN8lfGedE01zWp-mZBetx0CZrv94a9-e0mQS-J7VAORu38dRig9FE7Nemqhp3bUEh19abvdKHctEoVP9jRnyfH6zWosvNMK_sb-F7hhnZbpKI9sCVinzFhGmZGIiqmUfpvKDuXE4-pLlkksu8ISehRb4bqqQ',
-                  }}
-                  style={styles.mapImage}
-                />
-                <View style={styles.locationPinContainer}>
-                  <Ionicons
-                    name="location"
-                    size={48}
-                    color={colors.sos}
-                  />
-                </View>
-                <View style={styles.mapLabel}>
-                  <Text style={styles.mapLabelText}>Xem bản đồ lớn</Text>
-                </View>
+                {Platform.OS === 'web' ? (
+                  <View style={styles.mapPlaceholder}>
+                    <Ionicons name="map" size={40} color={colors.gray400} />
+                    <Text style={styles.mapPlaceholderText}>Bản đồ (chạy trên thiết bị để xem)</Text>
+                  </View>
+                ) : (
+                  <MapView
+                    key={formData.location ? `${formData.location.lat}-${formData.location.lng}` : 'default'}
+                    style={styles.mapImage}
+                    initialRegion={{
+                      latitude: formData.location?.lat ?? 21.0285,
+                      longitude: formData.location?.lng ?? 105.8542,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }}
+                    scrollEnabled={false}
+                    zoomEnabled={false}
+                    pitchEnabled={false}
+                    rotateEnabled={false}
+                    showsUserLocation={!!formData.location}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: formData.location?.lat ?? 21.0285,
+                        longitude: formData.location?.lng ?? 105.8542,
+                      }}
+                      title="Vị trí của bạn"
+                      pinColor={colors.sos}
+                    />
+                  </MapView>
+                )}
               </View>
             </View>
           </View>
@@ -544,28 +560,18 @@ const styles = {
   mapImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
-    opacity: 0.8,
   },
-  locationPinContainer: {
-    position: 'absolute',
-    inset: 0,
+  mapPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
-  mapLabel: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  mapLabelText: {
+  mapPlaceholderText: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#666',
+    color: colors.gray500,
   },
   photoBtn: {
     flexDirection: 'row',

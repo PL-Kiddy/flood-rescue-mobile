@@ -5,14 +5,15 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Image,
   SafeAreaView,
   StatusBar,
   Dimensions,
   FlatList,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { reliefCategories, emergencyNumbers, REQUEST_CATEGORY } from '../../data/mockData';
 import { colors } from '../../constants/theme';
@@ -21,6 +22,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { createRescueRequest } from '../../services/rescueRequests';
 
 const { width } = Dimensions.get('window');
+
+const DEFAULT_REGION = {
+  latitude: 21.0285,
+  longitude: 105.8542,
+  latitudeDelta: 0.02,
+  longitudeDelta: 0.02,
+};
 
 export default function ReliefForm({ navigation }) {
   const { user } = useAuth();
@@ -240,18 +248,35 @@ export default function ReliefForm({ navigation }) {
           </TouchableOpacity>
 
           <View style={styles.mapPreview}>
-            <Image
-              source={{
-                uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDafCwO7PLh_lfW9GUq2yApm6tHdVUZcOXXrjc8hdtjiYtyzvyt3RraNVJMaoiQFREVrJubRlUUeXXewymy54RpjqiLXwQWnLY8dnmI52MHWFIJzfsDN8lfGedE01zWp-mZBetx0CZrv94a9-e0mQS-J7VAORu38dRig9FE7Nemqhp3bUEh19abvdKHctEoVP9jRnyfH6zWosvNMK_sb-F7hhnZbpKI9sCVinzFhGmZGIiqmUfpvKDuXE4-pLlkksu8ISehRb4bqqQ',
-              }}
-              style={styles.mapImage}
-            />
-            <View style={styles.mapOverlay}>
-              <View style={styles.mapOverlayContent}>
-              <Ionicons name="hand-left" size={18} color={colors.gray600} />
-              <Text style={styles.mapOverlayText}>Ghim trên bản đồ</Text>
-            </View>
-            </View>
+            {Platform.OS === 'web' ? (
+              <View style={styles.mapPlaceholder}>
+                <Ionicons name="map" size={40} color={colors.gray400} />
+                <Text style={styles.mapPlaceholderText}>Bản đồ (chạy trên thiết bị để xem)</Text>
+              </View>
+            ) : (
+              <MapView
+                key={formData.location ? `${formData.location.lat}-${formData.location.lng}` : 'default'}
+                style={styles.mapImage}
+                initialRegion={
+                  formData.location
+                    ? { latitude: formData.location.lat, longitude: formData.location.lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+                    : DEFAULT_REGION
+                }
+                scrollEnabled={false}
+                zoomEnabled={false}
+                pitchEnabled={false}
+                rotateEnabled={false}
+                showsUserLocation={!!formData.location}
+              >
+                {formData.location && (
+                  <Marker
+                    coordinate={{ latitude: formData.location.lat, longitude: formData.location.lng }}
+                    title="Vị trí cần cứu trợ"
+                    pinColor={colors.relief}
+                  />
+                )}
+              </MapView>
+            )}
           </View>
         </View>
 
@@ -493,28 +518,18 @@ const styles = {
   mapImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
-    opacity: 0.6,
   },
-  mapOverlay: {
-    position: 'absolute',
-    inset: 0,
+  mapPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
-  mapOverlayContent: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  mapOverlayText: {
+  mapPlaceholderText: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#999',
+    color: colors.gray500,
   },
   categoryGrid: {
     justifyContent: 'space-between',

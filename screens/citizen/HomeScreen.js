@@ -13,7 +13,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
 import { getCurrentLocationWithFallback } from '../../utils/location';
@@ -165,6 +165,7 @@ export default function HomeScreen({ navigation, route }) {
           ref={mapRef}
           style={styles.mapImage}
           initialRegion={DEFAULT_REGION}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           onRegionChangeComplete={(r) => setRegion(r)}
           showsUserLocation={!!userLocation}
           showsMyLocationButton={false}
@@ -187,6 +188,11 @@ export default function HomeScreen({ navigation, route }) {
             <TouchableOpacity style={styles.retryLocationBtn} onPress={retryLocation}>
               <Text style={styles.retryLocationText}>Thử lại</Text>
             </TouchableOpacity>
+          </View>
+        )}
+        {Platform.OS === 'android' && !locationLoading && (
+          <View style={styles.mapHint}>
+            <Text style={styles.mapHintText}>Bản đồ trắng? Thêm Google Maps API key vào app.json (mục android.config.googleMaps.apiKey) rồi chạy: npx expo prebuild --clean và npx expo run:android</Text>
           </View>
         )}
       </View>
@@ -364,6 +370,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.white,
+  },
+  mapHint: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+  },
+  mapHintText: {
+    fontSize: 10,
+    color: colors.gray600,
+    textAlign: 'center',
   },
   markerGroup: {
     position: 'absolute',
