@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
-import { addMockRescueRequest, REQUEST_CATEGORY, PRIORITY_LEVELS } from '../../data/mockData';
+import { REQUEST_CATEGORY, PRIORITY_LEVELS } from '../../data/mockData';
 import { getCurrentLocationWithFallback } from '../../utils/location';
 import { useAuth } from '../../contexts/AuthContext';
 import { createRescueRequest } from '../../services/rescueRequests';
@@ -90,18 +90,13 @@ export default function SOSForm({ navigation }) {
     };
     try {
       const created = await createRescueRequest(payload);
-      Alert.alert('Thành công', `Yêu cầu SOS đã được gửi! Mã: ${created?.id?.slice(0, 8) || 'OK'}`, [
+      const code = created?.code || created?.id ? `#${String(created.id).slice(0, 8)}` : '';
+      Alert.alert('Thành công', `Yêu cầu SOS đã được gửi!${code ? ` Mã: ${code}` : ''}`, [
         { text: 'OK', onPress: () => navigation.navigate('Home') },
       ]);
     } catch (err) {
-      const mockReq = addMockRescueRequest({
-        ...payload,
-        contact_name: formData.name,
-        user_id: user?.id,
-      });
-      Alert.alert('Đã gửi (offline)', `Yêu cầu SOS đã lưu. Mã: ${mockReq.code}`, [
-        { text: 'OK', onPress: () => navigation.navigate('Home') },
-      ]);
+      const msg = err?.message || err?.data?.message || 'Gửi yêu cầu thất bại. Kiểm tra kết nối và thử lại.';
+      Alert.alert('Lỗi', msg);
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,59 +12,19 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
+import { useAuth } from '../../contexts/AuthContext';
+import { getRescueRequests } from '../../services/rescueRequests';
 
-const taskHistory = [
-  {
-    id: 1,
-    code: '#RE-9920',
-    victim: 'Trần Thị B',
-    status: 'Đã sơ tán',
-    statusColor: '#28A745',
-    datetime: '10/10/2023 - 14:30',
-    location: '45 Nguyễn Huệ, Quận 1',
-    team: 'Team-A1',
-  },
-  {
-    id: 2,
-    code: '#RE-9918',
-    victim: 'Lê Văn C',
-    status: 'Cấp cứu tại chỗ',
-    statusColor: '#FF8C00',
-    datetime: '10/10/2023 - 11:15',
-    location: 'Hẻm 203 XVNT, Bình Thạnh',
-    team: 'Team-A1',
-  },
-  {
-    id: 3,
-    code: '#RE-9892',
-    victim: 'Gia đình anh Nam',
-    status: 'Đã sơ tán',
-    statusColor: '#28A745',
-    datetime: '09/10/2023 - 22:45',
-    location: 'Khu dân cư Thanh Đa, Bình Thạnh',
-    team: 'Team-A1',
-  },
-  {
-    id: 4,
-    code: '#RE-9885',
-    victim: 'Nguyễn Văn K',
-    status: 'Chuyển viện',
-    statusColor: '#dc2626',
-    datetime: '09/10/2023 - 19:20',
-    location: 'Cầu Sài Gòn (Chân cầu)',
-    team: 'Team-A1',
-  },
-  {
-    id: 5,
-    code: '#RE-9850',
-    victim: 'Cụ bà H\'Hen',
-    status: 'Đã sơ tán',
-    statusColor: '#28A745',
-    datetime: '09/10/2023 - 08:10',
-    location: 'Chung cư cũ, P.27, Bình Thạnh',
-    team: 'Team-A1',
-  },
-];
+function mapRequestToHistoryItem(r) {
+  const code = r.code || (r.id ? `#${String(r.id).slice(0, 8)}` : '');
+  const victim = r.contact_name || r.creator?.username || '—';
+  const status = r.completion_notes ? 'Đã hoàn thành' : (r.status === 'completed' ? 'Đã sơ tán' : 'Đã hoàn thành');
+  const statusColor = status === 'Đã sơ tán' || status === 'Đã hoàn thành' ? '#28A745' : '#666';
+  const datetime = r.updated_at || r.created_at ? new Date(r.updated_at || r.created_at).toLocaleString('vi-VN') : '—';
+  const location = r.address || r.province_city || '—';
+  const team = typeof r.assigned_team === 'object' && r.assigned_team?.name ? r.assigned_team.name : 'Đội cứu hộ';
+  return { id: r.id, code, victim, status, statusColor, datetime, location, team };
+}
 
 const statsData = [
   { id: 1, label: 'Tổng nhiệm vụ', value: '124', icon: 'document-text', color: colors.primary },
@@ -74,8 +34,37 @@ const statsData = [
 ];
 
 export default function TaskHistoryScreen({ navigation }) {
+  const { user } = useAuth();
+  const teamId = user?.team_id ?? user?.rescue_team_id ?? null;
+  const [taskHistory, setTaskHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
-  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await getRescueRequests({ assigned_team_id: teamId });
+        const completed = (res.data || []).filter((r) => r.status === 'completed');
+        const list = completed.map(mapRequestToHistoryItem);
+        if (!cancelled) setTaskHistory(list);
+      } catch (_) {
+        if (!cancelled) setTaskHistory([]);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [teamId]);
+
+  const filteredHistory = searchText.trim()
+    ? taskHistory.filter(
+        (item) =>
+          item.code?.toLowerCase().includes(searchText.toLowerCase()) ||
+          item.victim?.toLowerCase().includes(searchText.toLowerCase()) ||
+          item.location?.toLowerCase().includes(searchText.toLowerCase())
+      )
+    : taskHistory;
 
   const getStatusBgColor = (status) => {
     switch (status) {
@@ -227,11 +216,18 @@ export default function TaskHistoryScreen({ navigation }) {
         {/* Task History List */}
         <View style={styles.tasksSection}>
           <FlatList
-            data={taskHistory}
+            data={filteredHistory}
             renderItem={renderTaskCard}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => String(item.id)}
             scrollEnabled={false}
             ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+            ListEmptyComponent={
+              loading ? null : (
+                <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 14, color: colors.gray500 }}>Chưa có lịch sử nhiệm vụ hoàn thành</Text>
+                </View>
+              )
+            }
           />
         </View>
 

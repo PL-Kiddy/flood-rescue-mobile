@@ -93,7 +93,32 @@ export default function HomeScreen({ navigation, route }) {
         latitudeDelta: 0.02,
         longitudeDelta: 0.02,
       }, 400);
+    } else {
+      // Không có vị trí: thử lấy lại hoặc về vùng mặc định
+      retryLocation();
     }
+  };
+
+  const retryLocation = () => {
+    setLocationLoading(true);
+    setLocationError(false);
+    (async () => {
+      try {
+        const result = await getCurrentLocationWithFallback();
+        setUserLocation({ latitude: result.lat, longitude: result.lng });
+        setRegion({
+          latitude: result.lat,
+          longitude: result.lng,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        });
+      } catch (_) {
+        setLocationError(true);
+        setUserLocation(null);
+      } finally {
+        setLocationLoading(false);
+      }
+    })();
   };
 
   const zoomIn = () => {
@@ -156,9 +181,12 @@ export default function HomeScreen({ navigation, route }) {
           </View>
         )}
         {locationError && !locationLoading && (
-          <View style={styles.mapLoading}>
-            <Ionicons name="locate-outline" size={32} color={colors.gray500} />
-            <Text style={styles.mapLoadingText}>Không lấy được vị trí. Bật GPS và thử lại.</Text>
+          <View style={styles.locationErrorBanner}>
+            <Ionicons name="locate-outline" size={20} color={colors.gray600} />
+            <Text style={styles.locationErrorText}>Không lấy được vị trí. Bật GPS hoặc thử lại.</Text>
+            <TouchableOpacity style={styles.retryLocationBtn} onPress={retryLocation}>
+              <Text style={styles.retryLocationText}>Thử lại</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -300,6 +328,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray600,
     textAlign: 'center',
+  },
+  locationErrorBanner: {
+    position: 'absolute',
+    top: 70,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  locationErrorText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.gray600,
+  },
+  retryLocationBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  retryLocationText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.white,
   },
   markerGroup: {
     position: 'absolute',

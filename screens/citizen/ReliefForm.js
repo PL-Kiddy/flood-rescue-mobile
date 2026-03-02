@@ -14,7 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { reliefCategories, emergencyNumbers, addMockRescueRequest, REQUEST_CATEGORY, MOCK_CITIZEN_ID } from '../../data/mockData';
+import { reliefCategories, emergencyNumbers, REQUEST_CATEGORY } from '../../data/mockData';
 import { colors } from '../../constants/theme';
 import { getCurrentLocationWithFallback } from '../../utils/location';
 import { useAuth } from '../../contexts/AuthContext';
@@ -82,7 +82,6 @@ export default function ReliefForm({ navigation }) {
     ].filter(Boolean).join(' ');
     const payload = {
       category: REQUEST_CATEGORY.SUPPLIES,
-      contact_name: formData.name,
       phone_number: formData.phone,
       province_city: formData.province_city || 'Chưa chọn',
       address: formData.address,
@@ -92,14 +91,13 @@ export default function ReliefForm({ navigation }) {
       description: fullDescription || 'Cần nhu yếu phẩm',
       num_people: formData.num_people || 1,
       priority: 'medium',
-      user_id: user?.id || MOCK_CITIZEN_ID,
     };
     try {
       await createRescueRequest(payload);
       Alert.alert('Thành công', 'Yêu cầu tiếp tế đã được gửi!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch (err) {
-      const newReq = addMockRescueRequest(payload);
-      Alert.alert('Đã gửi (offline)', `Yêu cầu tiếp tế đã lưu. Mã: ${newReq.code}`, [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      const msg = err?.message || err?.data?.message || 'Gửi yêu cầu thất bại. Kiểm tra kết nối và thử lại.';
+      Alert.alert('Lỗi', msg);
     }
   };
 

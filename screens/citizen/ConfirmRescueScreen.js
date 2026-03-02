@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,17 +8,70 @@ import {
   StatusBar,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
-import { getMockRescueRequests, updateMockRescueRequest } from '../../data/mockData';
+import { getRescueRequestById, updateRescueRequest } from '../../services/rescueRequests';
 
 export default function ConfirmRescueScreen({ navigation, route }) {
   const { requestId } = route?.params || {};
-  const requests = getMockRescueRequests();
-  const request = requests.find((r) => r.id === requestId);
+  const [request, setRequest] = useState(null);
+  const [loading, setLoading] = useState(!!requestId);
+  const [submitting, setSubmitting] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+
+  useEffect(() => {
+    if (!requestId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getRescueRequestById(requestId);
+        if (!cancelled) setRequest(data);
+      } catch (_) {
+        if (!cancelled) setRequest(null);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [requestId]);
+
+  const handleSubmit = async () => {
+    if (!requestId) return;
+    setSubmitting(true);
+    try {
+      await updateRescueRequest(requestId, {
+        confirmed_by_citizen: true,
+        citizen_feedback: { rating, comment: comment.trim() || null },
+      });
+      Alert.alert('Cảm ơn bạn!', 'Xác nhận và phản hồi của bạn đã được ghi nhận.', [
+        { text: 'OK', onPress: () => navigation.navigate('RequestDetail', { requestId }) },
+      ]);
+    } catch (err) {
+      const msg = err?.message || err?.data?.message || 'Gửi thất bại. Thử lại sau.';
+      Alert.alert('Lỗi', msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Xác nhận đã được hỗ trợ</Text>
+          <View style={styles.backBtn} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!request) {
     return (
@@ -31,15 +84,7 @@ export default function ConfirmRescueScreen({ navigation, route }) {
     );
   }
 
-  const handleSubmit = () => {
-    updateMockRescueRequest(requestId, {
-      confirmed_by_citizen: true,
-      citizen_feedback: { rating, comment: comment.trim() || null },
-    });
-    Alert.alert('Cảm ơn bạn!', 'Xác nhận và phản hồi của bạn đã được ghi nhận.', [
-      { text: 'OK', onPress: () => navigation.navigate('RequestDetail', { requestId }) },
-    ]);
-  };
+  const requestCode = request.code || (request.id ? `#${String(request.id).slice(0, 8)}` : '');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -53,7 +98,7 @@ export default function ConfirmRescueScreen({ navigation, route }) {
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.intro}>
-          Yêu cầu {request.code} đã được xử lý. Bạn xác nhận đã được cứu hộ / đã nhận cứu trợ và có thể gửi phản hồi để giúp chúng tôi cải thiện.
+          Yêu cầu {requestCode} đã được xử lý. Bạn xác nhận đã được cứu hộ / đã nhận cứu trợ và có thể gửi phản hồi để giúp chúng tôi cải thiện.
         </Text>
 
         <Text style={styles.label}>Đánh giá (1–5 sao)</Text>
@@ -84,9 +129,13 @@ export default function ConfirmRescueScreen({ navigation, route }) {
           numberOfLines={4}
         />
 
-        <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-          <Ionicons name="checkmark-circle" size={22} color={colors.white} />
-          <Text style={styles.submitBtnText}>Gửi xác nhận & phản hồi</Text>
+        <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
+          {submitting ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Ionicons name="checkmark-circle" size={22} color={colors.white} />
+          )}
+          <Text style={styles.submitBtnText}>{submitting ? 'Đang gửi...' : 'Gửi xác nhận & phản hồi'}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

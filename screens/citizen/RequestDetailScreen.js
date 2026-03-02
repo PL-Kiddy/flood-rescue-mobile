@@ -11,12 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
-import {
-  getMockRescueRequests,
-  REQUEST_STATUS_LABEL,
-  REQUEST_CATEGORY_LABEL,
-  REQUEST_STATUS,
-} from '../../data/mockData';
+import { REQUEST_STATUS_LABEL, REQUEST_CATEGORY_LABEL, REQUEST_STATUS } from '../../data/mockData';
 import { getRescueRequestById } from '../../services/rescueRequests';
 
 export default function RequestDetailScreen({ navigation, route }) {
@@ -32,9 +27,7 @@ export default function RequestDetailScreen({ navigation, route }) {
         const data = await getRescueRequestById(requestId);
         if (!cancelled) setRequest(normalizeRequest(data));
       } catch (_) {
-        const list = getMockRescueRequests();
-        const found = list.find((r) => r.id === requestId);
-        if (!cancelled) setRequest(found || null);
+        if (!cancelled) setRequest(null);
       }
       if (!cancelled) setLoading(false);
     })();

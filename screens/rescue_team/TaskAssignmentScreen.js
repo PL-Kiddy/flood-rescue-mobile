@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,39 +12,74 @@ import {
   TextInput,
   Linking,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
-import {
-  getMockAssignedTasks,
-  MOCK_TEAM_ID,
-  updateMockRescueRequest,
-  MISSION_STATUS,
-  REQUEST_STATUS,
-  MISSION_STATUS_LABEL,
-} from '../../data/mockData';
+import { MISSION_STATUS, REQUEST_STATUS, MISSION_STATUS_LABEL } from '../../data/mockData';
+import { useAuth } from '../../contexts/AuthContext';
+import { getRescueRequests, updateRescueRequest, completeRescueRequest } from '../../services/rescueRequests';
 
 const DEFAULT_MAP_REGION = { latitude: 10.0343, longitude: 105.7889, latitudeDelta: 0.02, longitudeDelta: 0.02 };
 
+function normalizeTask(r) {
+  if (!r) return null;
+  return {
+    ...r,
+    code: r.code || (r.id ? `#${String(r.id).slice(0, 8)}` : '#RE-xxxx'),
+    contact_name: r.contact_name ?? r.creator?.username ?? '—',
+    mission_status: r.mission_status ?? MISSION_STATUS.ASSIGNED,
+  };
+}
+
 export default function TaskAssignmentScreen({ navigation }) {
-  const tasks = useMemo(() => getMockAssignedTasks(MOCK_TEAM_ID), []);
-  const currentTask = tasks.find((t) => t.mission_status !== MISSION_STATUS.DECLINED) || tasks[0];
-  const [task, setTask] = useState(currentTask);
+  const { user } = useAuth();
+  const teamId = user?.team_id ?? user?.rescue_team_id ?? null;
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [task, setTask] = useState(null);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const refreshTask = () => {
-    const updated = getMockAssignedTasks(MOCK_TEAM_ID).find((t) => t.id === task?.id);
+  const fetchTasks = useCallback(async () => {
+    try {
+      const res = await getRescueRequests({ assigned_team_id: teamId });
+      const list = (res.data || []).map(normalizeTask);
+      setTasks(list);
+      const current = list.find((t) => t.mission_status !== MISSION_STATUS.DECLINED) || list[0];
+      setTask(current ?? null);
+    } catch (_) {
+      setTasks([]);
+      setTask(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [teamId]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  const refreshTask = useCallback(() => {
+    const updated = tasks.find((t) => t.id === task?.id);
     if (updated) setTask(updated);
-    else setTask(getMockAssignedTasks(MOCK_TEAM_ID)[0]);
-  };
+    else setTask(tasks[0] ?? null);
+  }, [tasks, task?.id]);
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     if (!task) return;
-    updateMockRescueRequest(task.id, { mission_status: MISSION_STATUS.ACCEPTED });
-    refreshTask();
-    Alert.alert('Đã nhận', 'Bạn đã nhận nhiệm vụ. Bắt đầu di chuyển khi sẵn sàng.');
+    setActionLoading(true);
+    try {
+      await updateRescueRequest(task.id, { mission_status: MISSION_STATUS.ACCEPTED });
+      await fetchTasks();
+      Alert.alert('Đã nhận', 'Bạn đã nhận nhiệm vụ. Bắt đầu di chuyển khi sẵn sàng.');
+    } catch (err) {
+      Alert.alert('Lỗi', err?.message || err?.data?.message || 'Cập nhật thất bại.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleDecline = () => {
@@ -57,41 +92,66 @@ export default function TaskAssignmentScreen({ navigation }) {
         {
           text: 'Từ chối',
           style: 'destructive',
-          onPress: () => {
-            updateMockRescueRequest(task.id, {
-              mission_status: MISSION_STATUS.DECLINED,
-              assigned_team_id: null,
-              assigned_team: null,
-              status: REQUEST_STATUS.PENDING_VERIFICATION,
-            });
-            refreshTask();
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              await updateRescueRequest(task.id, {
+                mission_status: MISSION_STATUS.DECLINED,
+                status: REQUEST_STATUS.PENDING_VERIFICATION,
+              });
+              await fetchTasks();
+            } catch (err) {
+              Alert.alert('Lỗi', err?.message || err?.data?.message || 'Cập nhật thất bại.');
+            } finally {
+              setActionLoading(false);
+            }
           },
         },
       ]
     );
   };
 
-  const handleStatusUpdate = (newStatus) => {
+  const handleStatusUpdate = async (newStatus) => {
     if (!task) return;
     if (newStatus === MISSION_STATUS.COMPLETED) {
       setShowCompleteModal(true);
       return;
     }
-    updateMockRescueRequest(task.id, { mission_status: newStatus });
-    refreshTask();
+    setActionLoading(true);
+    try {
+      await updateRescueRequest(task.id, { mission_status: newStatus });
+      await fetchTasks();
+    } catch (err) {
+      Alert.alert('Lỗi', err?.message || err?.data?.message || 'Cập nhật thất bại.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleCompleteSubmit = () => {
+  const handleCompleteSubmit = async () => {
     if (!task) return;
-    updateMockRescueRequest(task.id, {
-      mission_status: MISSION_STATUS.COMPLETED,
-      status: REQUEST_STATUS.COMPLETED,
-      completion_notes: completionNotes.trim() || 'Đã hoàn thành nhiệm vụ.',
-    });
-    setShowCompleteModal(false);
-    setCompletionNotes('');
-    refreshTask();
-    Alert.alert('Hoàn thành', 'Nhiệm vụ đã được đánh dấu hoàn thành.');
+    setActionLoading(true);
+    try {
+      try {
+        await completeRescueRequest(task.id, {
+          completion_notes: completionNotes.trim() || 'Đã hoàn thành nhiệm vụ.',
+        });
+      } catch (_) {
+        await updateRescueRequest(task.id, {
+          mission_status: MISSION_STATUS.COMPLETED,
+          status: REQUEST_STATUS.COMPLETED,
+          completion_notes: completionNotes.trim() || 'Đã hoàn thành nhiệm vụ.',
+        });
+      }
+      setShowCompleteModal(false);
+      setCompletionNotes('');
+      await fetchTasks();
+      Alert.alert('Hoàn thành', 'Nhiệm vụ đã được đánh dấu hoàn thành.');
+    } catch (err) {
+      Alert.alert('Lỗi', err?.message || err?.data?.message || 'Cập nhật thất bại.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const isAssigned = task?.mission_status === MISSION_STATUS.ASSIGNED;
@@ -222,15 +282,22 @@ export default function TaskAssignmentScreen({ navigation }) {
 
       {/* Status Buttons or Accept/Decline */}
       <View style={styles.statusButtonsContainer}>
-        {!task ? (
+        {loading ? (
+          <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.noTaskText, { marginTop: 12 }]}>Đang tải nhiệm vụ...</Text>
+          </View>
+        ) : !teamId ? (
+          <Text style={styles.noTaskText}>Tài khoản chưa gắn đội cứu hộ. Liên hệ quản trị để được gán đội.</Text>
+        ) : !task ? (
           <Text style={styles.noTaskText}>Không có nhiệm vụ nào được phân công.</Text>
         ) : isAssigned ? (
           <View style={styles.statusButtonsGrid}>
-            <TouchableOpacity style={[styles.statusBtn, styles.statusBtnAccept]} onPress={handleAccept}>
+            <TouchableOpacity style={[styles.statusBtn, styles.statusBtnAccept]} onPress={handleAccept} disabled={actionLoading}>
               <Ionicons name="checkmark-circle" size={22} color={colors.success} />
               <Text style={styles.statusBtnLabel}>Nhận nhiệm vụ</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.statusBtn, styles.statusBtnDecline]} onPress={handleDecline}>
+            <TouchableOpacity style={[styles.statusBtn, styles.statusBtnDecline]} onPress={handleDecline} disabled={actionLoading}>
               <Ionicons name="close-circle" size={22} color={colors.sos} />
               <Text style={[styles.statusBtnLabel, { color: colors.sos }]}>Từ chối</Text>
             </TouchableOpacity>

@@ -18,21 +18,37 @@ export async function createRescueRequest(payload, token = null) {
     body.address = payload.address || '';
   }
   const res = await api.post('/rescue-requests', body);
-  return res.data;
+  const raw = res.data ?? res;
+  return typeof raw === 'object' && raw !== null ? raw : res.data;
 }
 
 export async function getRescueRequests(params = {}) {
   const q = new URLSearchParams();
   if (params.user_id) q.set('user_id', params.user_id);
+  if (params.assigned_team_id != null) q.set('assigned_team_id', params.assigned_team_id);
+  if (params.status) q.set('status', params.status);
   if (params.page) q.set('page', params.page);
   if (params.limit) q.set('limit', params.limit);
-  if (params.status) q.set('status', params.status);
   const query = q.toString();
   const res = await api.get(`/rescue-requests${query ? `?${query}` : ''}`);
-  return { data: res.data || [], pagination: res.pagination };
+  const list = Array.isArray(res.data) ? res.data : (res.data?.data ?? []) ?? [];
+  return { data: list, pagination: res.pagination };
 }
 
 export async function getRescueRequestById(id) {
   const res = await api.get(`/rescue-requests/${id}`);
-  return res.data;
+  const raw = res.data ?? res;
+  return typeof raw === 'object' && raw !== null ? raw : res.data;
+}
+
+export async function updateRescueRequest(id, body) {
+  const res = await api.patch(`/rescue-requests/${id}`, body);
+  const raw = res.data ?? res;
+  return typeof raw === 'object' && raw !== null ? raw : res.data;
+}
+
+export async function completeRescueRequest(id, body = {}) {
+  const res = await api.post(`/rescue-requests/${id}/complete`, body);
+  const raw = res.data ?? res;
+  return typeof raw === 'object' && raw !== null ? raw : res.data;
 }

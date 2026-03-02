@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,72 +7,55 @@ import {
   SafeAreaView,
   StatusBar,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
+import { useAuth } from '../../contexts/AuthContext';
+import { getTeamMembers } from '../../services/rescueTeams';
 
-const mockMembers = [
-  {
-    id: '1',
-    name: 'Lê Văn Nam',
-    initials: 'LN',
-    role: 'ĐỘI TRƯỞNG',
-    status: 'active',
-    skills: ['Chỉ huy', 'Cứu nạn'],
-    badge: 'ĐỘI TRƯỞNG',
-    color: '#6366f1',
-  },
-  {
-    id: '2',
-    name: 'Nguyễn Văn B',
-    initials: 'NB',
-    role: 'Cứu hộ thủy',
-    status: 'active',
-    skills: ['Cứu hộ thủy', 'Sơ cấp cứu'],
-    color: '#3b82f6',
-  },
-  {
-    id: '3',
-    name: 'Trần Thị C',
-    initials: 'TC',
-    role: 'Hỗ trợ',
-    status: 'idle',
-    skills: ['Tâm lý', 'Hậu cần'],
-    color: '#a855f7',
-  },
-  {
-    id: '4',
-    name: 'Lê Văn D',
-    initials: 'LD',
-    role: 'Lái xe',
-    status: 'active',
-    skills: ['Lái xe', 'Kỹ thuật'],
-    color: '#eab308',
-  },
-  {
-    id: '5',
-    name: 'Hoàng Văn K',
-    initials: 'HK',
-    role: 'Viễn thông',
-    status: 'idle',
-    skills: ['Viễn thông', 'Trinh sát'],
-    color: '#14b8a6',
-  },
-  {
-    id: '6',
-    name: 'Nguyễn Thành P',
-    initials: 'NP',
-    role: 'Tình nguyện',
-    status: 'idle',
-    skills: ['Tình nguyện'],
-    color: '#6b7280',
-  },
-];
+const AVATAR_COLORS = ['#6366f1', '#3b82f6', '#a855f7', '#eab308', '#14b8a6', '#6b7280'];
+
+function mapMember(m, index) {
+  const name = m.name || m.username || m.email || 'Thành viên';
+  const words = name.trim().split(/\s+/);
+  const initials = words.length >= 2 ? (words[0][0] + words[words.length - 1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
+  return {
+    id: String(m.id ?? m.user_id ?? index),
+    name,
+    initials,
+    role: m.role || m.position || 'Thành viên',
+    status: m.status || 'active',
+    skills: Array.isArray(m.skills) ? m.skills : (m.role ? [m.role] : []),
+    badge: m.is_leader ? 'ĐỘI TRƯỞNG' : null,
+    color: AVATAR_COLORS[index % AVATAR_COLORS.length],
+  };
+}
 
 export default function TeamMembersScreen({ navigation }) {
-  const totalMembers = mockMembers.length;
-  const readyMembers = mockMembers.filter((m) => m.status === 'active').length;
-  const onDutyMembers = mockMembers.filter((m) => m.status === 'active').length;
+  const { user } = useAuth();
+  const teamId = user?.team_id ?? user?.rescue_team_id ?? null;
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const list = await getTeamMembers(teamId);
+        if (!cancelled) setMembers(list.map(mapMember));
+      } catch (_) {
+        if (!cancelled) setMembers([]);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [teamId]);
+
+  const totalMembers = members.length;
+  const readyMembers = members.filter((m) => m.status === 'active').length;
+  const onDutyMembers = readyMembers;
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -206,17 +189,27 @@ export default function TeamMembersScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          <FlatList
-            data={mockMembers}
-            renderItem={renderMember}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-          />
-
-          <TouchableOpacity style={styles.viewMoreBtn}>
-            <Text style={styles.viewMoreText}>Xem thêm 6 thành viên</Text>
-          </TouchableOpacity>
+          {loading ? (
+            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ marginTop: 12, fontSize: 14, color: colors.gray500 }}>Đang tải danh sách...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={members}
+              renderItem={renderMember}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+              ListEmptyComponent={
+                <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 14, color: colors.gray500, textAlign: 'center' }}>
+                    Chưa có dữ liệu thành viên. Nếu bạn thuộc đội cứu hộ, dữ liệu sẽ được cập nhật từ hệ thống.
+                  </Text>
+                </View>
+              }
+            />
+          )}
         </View>
       </ScrollView>
 

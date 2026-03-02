@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
-import { getMockRequestsByUser, REQUEST_STATUS_LABEL, REQUEST_CATEGORY_LABEL } from '../../data/mockData';
+import { REQUEST_STATUS_LABEL, REQUEST_CATEGORY_LABEL } from '../../data/mockData';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRescueRequests } from '../../services/rescueRequests';
 
@@ -30,21 +30,21 @@ export default function MyRequestsScreen({ navigation }) {
   const { user } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setError(null);
       try {
-        if (user?.id) {
-          const res = await getRescueRequests({ user_id: user.id });
-          if (!cancelled) setRequests((res.data || []).map(normalizeItem));
-        } else {
-          const mock = getMockRequestsByUser(null);
-          if (!cancelled) setRequests(mock.map(normalizeItem));
+        const res = await getRescueRequests({ user_id: user?.id });
+        if (!cancelled) setRequests((res.data || []).map(normalizeItem));
+      } catch (err) {
+        if (!cancelled) {
+          setRequests([]);
+          setError(err?.message || err?.data?.message || 'Không tải được danh sách. Kiểm tra kết nối.');
         }
-      } catch (_) {
-        if (!cancelled) setRequests(getMockRequestsByUser(user?.id).map(normalizeItem));
       }
       if (!cancelled) setLoading(false);
     })();
@@ -93,6 +93,11 @@ export default function MyRequestsScreen({ navigation }) {
       </View>
       {loading ? (
         <View style={styles.empty}><ActivityIndicator size="large" color={colors.primary} /></View>
+      ) : error ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>Lỗi tải dữ liệu</Text>
+          <Text style={styles.emptySubtext}>{error}</Text>
+        </View>
       ) : requests.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>Chưa có yêu cầu nào</Text>
